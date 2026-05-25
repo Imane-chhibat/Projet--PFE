@@ -1,0 +1,76 @@
+@import "tailwindcss";
+
+:root {
+  --color-dark-brown: #2A1B15;
+  --color-warm-gray: #8E887F;
+  --color-sand-gold: #CDB58E;
+  --color-deep-red: #603A2A;
+  --color-midnight: #111B2F;
+  --color-cream: #F5EDE0;
+  --color-white: #FFFFFF;
+}
+
+@theme {
+  --color-dark-brown: #2A1B15;
+  --color-warm-gray: #8E887F;
+  --color-sand-gold: #CDB58E;
+  --color-deep-red: #603A2A;
+  --color-midnight: #111B2F;
+  --color-cream: #F5EDE0;
+  
+  --font-display: "Playfair Display", serif;
+  --font-subtitle: "Cormorant Garamond", serif;
+  --font-sans: "DM Sans", sans-serif;
+  --font-badge: "Oswald", sans-serif;
+}
+
+body {
+  font-family: "DM Sans", sans-serif;
+  background-color: #2A1B15;
+  color: #F5EDE0;
+  overflow-x: hidden;
+}
+
+.font-display {
+  font-family: 'Playfair Display', serif;
+}
+
+.font-subtitle {
+  font-family: 'Cormorant Garamond', serif;
+}
+
+.font-sans {
+  font-family: 'DM Sans', sans-serif;
+}
+
+.font-badge {
+  font-family: 'Oswald', sans-serif;
+}
+
+/* Texture overlays */
+.zellige-pattern {
+  background-image: radial-gradient(rgba(205, 181, 142, 0.05) 1px, transparent 0);
+  background-size: 24px 24px;
+}
+
+/* Custom styles for luxury scrollbars */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+::-webkit-scrollbar-track {
+  background: #111B2F;
+}
+::-webkit-scrollbar-thumb {
+  background: #603A2A;
+  border-radius: 4px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: #CDB58E;
+}
+
+/* Marquee scroll animation for testimonial rows */
+@keyframes marqueeScroll {
+  0% { transform: translateX(0%); }
+  100% { transform: translateX(-50%); }
+}
