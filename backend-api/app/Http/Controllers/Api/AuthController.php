@@ -31,6 +31,7 @@ class AuthController extends Controller
             'phone'       => 'nullable|string',
             'cin'         => 'nullable|string',
             'is_certified'=> 'nullable|boolean',
+            'attestation' => 'nullable|file|mimes:pdf,jpg,jpeg,png|max:5120',
         ]);
 
         // Map frontend role names to backend
@@ -58,16 +59,23 @@ class AuthController extends Controller
                 $categoryId = $cat?->id;
             }
 
+            $attestationPath = null;
+            if ($request->hasFile('attestation')) {
+                $path = $request->file('attestation')->store('attestations', 'public');
+                $attestationPath = asset('storage/' . $path);
+            }
+
             ArtisanProfile::create([
                 'user_id'      => $user->id,
                 'category_id'  => $categoryId,
                 'specialty'    => $validated['specialty'] ?? 'Artisan',
-                'description'  => '',
+                'description'  => $validated['description'] ?? '',
                 'rating'       => 0,
                 'review_count' => 0,
                 'is_certified' => $validated['is_certified'] ?? false,
                 'experience_years' => 0,
                 'availability' => 'available',
+                'attestation_path' => $attestationPath,
             ]);
             \Illuminate\Support\Facades\Log::info('Artisan Profile created');
         }
@@ -136,5 +144,27 @@ class AuthController extends Controller
         $request->user()->currentAccessToken()->delete();
 
         return response()->json(['message' => 'Déconnexion réussie']);
+    }
+
+    /**
+     * PUT /api/change-password
+     */
+    public function changePassword(Request $request): JsonResponse
+    {
+        $request->validate([
+            'current_password' => 'required|string',
+            'password'         => 'required|string|min:6|confirmed',
+        ]);
+
+        $user = $request->user();
+
+        if (!Hash::check($request->current_password, $user->password)) {
+            return response()->json(['message' => 'L\'ancien mot de passe est incorrect.'], 400);
+        }
+
+        $user->password = Hash::make($request->password);
+        $user->save();
+
+        return response()->json(['message' => 'Mot de passe modifié avec succès']);
     }
 }

@@ -7,6 +7,8 @@ use App\Http\Controllers\Api\CategoryController;
 use App\Http\Controllers\Api\ArtisanController;
 use App\Http\Controllers\Api\AnnouncementController;
 use App\Http\Controllers\Api\TestimonialController;
+use App\Http\Controllers\Api\ClientRequestController;
+use App\Http\Controllers\Api\ClientProfileController;
 
 /*
 |--------------------------------------------------------------------------
@@ -34,6 +36,7 @@ Route::middleware('auth:sanctum')->group(function () {
     });
 
     Route::post('/logout', [AuthController::class, 'logout']);
+    Route::put('/change-password', [AuthController::class, 'changePassword']);
     Route::post('/artisans/{id}/reviews', [ArtisanController::class, 'addReview']);
 
     // ── Mon Profil Artisan ──
@@ -41,4 +44,16 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::put('/my-profile',  [ArtisanController::class, 'updateMyProfile']);
     Route::post('/my-profile/portfolio', [ArtisanController::class, 'addPortfolioItem']);
     Route::delete('/my-profile/portfolio/{itemId}', [ArtisanController::class, 'removePortfolioItem']);
+
+    // ── Demandes Clients ──
+    Route::post('/requests', [ClientRequestController::class, 'store']);
+    Route::get('/artisan/requests', [ClientRequestController::class, 'indexArtisan']);
+    Route::put('/artisan/requests/mark-read', [ClientRequestController::class, 'markAsRead']);
+    Route::put('/requests/{id}/accept', [ClientRequestController::class, 'accept']);
+
+    // ── Profil Client ──
+    Route::get('/client/profile', [ClientProfileController::class, 'getProfile']);
+    Route::post('/client/profile/update', [ClientProfileController::class, 'updateProfile']);
+    Route::post('/client/favorites/toggle', [ClientProfileController::class, 'toggleFavorite']);
+    Route::post('/client/saved-portfolios/toggle', [ClientProfileController::class, 'toggleSavedPortfolio']);
 });

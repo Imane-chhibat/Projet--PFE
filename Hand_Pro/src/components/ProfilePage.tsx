@@ -106,14 +106,34 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({
     setRdvConfirmed(false);
   };
 
-  const handleConfirmRdv = (e: React.FormEvent) => {
+  const handleConfirmRdv = async (e: React.FormEvent) => {
     e.preventDefault();
-    setRdvConfirmed(true);
-    setTimeout(() => {
-      setShowRdvModal(false);
-      setRdvConfirmed(false);
-      alert(`Félicitations! Demande de rendez-vous confirmée avec ${artisan.name}. Un SMS récapitulatif vous a été transmis.`);
-    }, 1800);
+    
+    if (userType === 'Visitor') {
+      alert("Vous devez être connecté pour envoyer une demande.");
+      return;
+    }
+
+    if (!selectedDay) return;
+
+    try {
+      const month = String(new Date().getMonth() + 1).padStart(2, '0');
+      const dayStr = String(selectedDay).padStart(2, '0');
+      const dateStr = `${new Date().getFullYear()}-${month}-${dayStr}`;
+      
+      await api.createClientRequest(artisan.id, dateStr);
+      
+      setRdvConfirmed(true);
+      setTimeout(() => {
+        setShowRdvModal(false);
+        setRdvConfirmed(false);
+        // Refresh artisan data to update calendar
+        api.getArtisan(artisanId).then(data => setArtisan(data));
+        alert(`Demande de rendez-vous envoyée à ${artisan.name} pour le ${dayStr}/${month}. L'artisan vous contactera après validation.`);
+      }, 1500);
+    } catch (err: any) {
+      alert(err.message || "Erreur lors de l'envoi de la demande");
+    }
   };
 
   if (loading) {
@@ -146,11 +166,13 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({
         
         {/* Photo de couverture : zone dégradée #2A1B15 → #603A2A avec motif géométrique marocain subtil */}
         <div className="relative h-48 md:h-64 w-full bg-gradient-to-r from-[#2A1B15] via-[#603A2A] to-[#2A1B15]">
-          <img 
-            src={artisan.coverPhoto} 
-            alt="Couverture" 
-            className="w-full h-full object-cover opacity-30 mix-blend-overlay object-center" 
-          />
+          {artisan.coverPhoto ? (
+            <img 
+              src={artisan.coverPhoto} 
+              alt="Couverture" 
+              className="w-full h-full object-cover opacity-30 mix-blend-overlay object-center" 
+            />
+          ) : null}
           {/* Geometric pattern overlay overlay */}
           <div className="absolute inset-0 zellige-pattern opacity-60" />
           
@@ -175,12 +197,16 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({
             <div className="flex flex-col md:flex-row items-center md:items-end gap-5 text-center md:text-left w-full md:w-auto">
               
               {/* Photo de profil : grande (120px), ronde, bordure blanche 4px + ombre */}
-              <div className="relative shrink-0">
-                <img 
-                  src={artisan.avatar} 
-                  alt={artisan.name} 
-                  className="w-28 h-28 md:w-32 md:h-32 rounded-full object-cover border-4 border-white shadow-xl object-top bg-[#2A1B15]"
-                />
+              <div className="relative shrink-0 w-28 h-28 md:w-32 md:h-32 rounded-full border-4 border-white shadow-xl bg-[#2A1B15] flex items-center justify-center text-[#CDB58E] font-bold text-5xl overflow-hidden">
+                {artisan.avatar ? (
+                  <img 
+                    src={artisan.avatar} 
+                    alt={artisan.name} 
+                    className="w-full h-full object-cover object-top"
+                  />
+                ) : (
+                  <span>{artisan.name?.charAt(0).toUpperCase() || 'A'}</span>
+                )}
                 
                 {/* Si certifié : badge diplôme doré overlaid en bas-droit de la photo */}
                 {artisan.isCertified && (
@@ -211,10 +237,16 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({
                     {artisan.city}
                   </span>
                   <span>•</span>
-                  <span className="flex items-center gap-1 text-[#CDB58E] font-bold">
-                    <Star size={12} className="fill-[#CDB58E]" />
-                    {artisan.rating} ({artisan.reviewCount} avis)
-                  </span>
+                  {artisan.reviewCount > 0 ? (
+                    <span className="flex items-center gap-1 text-[#CDB58E] font-bold">
+                      <Star size={12} className="fill-[#CDB58E]" />
+                      {artisan.rating} ({artisan.reviewCount} avis)
+                    </span>
+                  ) : (
+                    <span className="text-[#CDB58E] font-bold text-[10px] uppercase bg-[#603A2A]/40 px-2 py-0.5 rounded">
+                      Nouveau Maâlem
+                    </span>
+                  )}
                   <span>•</span>
                   <span>🔧 {artisan.experienceYears} ans de métier</span>
                   
@@ -330,7 +362,11 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({
                     Présentation du Maâlem
                   </h3>
                   <p className="text-xs sm:text-sm text-[#8E887F] leading-relaxed font-sans text-justify">
-                    {artisan.description}
+                    {artisan.description || (
+                      <span className="italic">
+                        Cet artisan vient de s'inscrire sur HandPro. Son profil détaillé sera bientôt complété.
+                      </span>
+                    )}
                   </p>
                 </div>
 
@@ -363,42 +399,52 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({
                     Expertises Principales
                   </h4>
                   <div className="flex flex-wrap gap-2">
-                    {artisan.services?.map((srv: any, index: number) => (
-                      <span 
-                        key={index}
-                        className="bg-[#603A2A] text-[#F5EDE0] text-xs px-3 py-1 rounded-full font-medium shadow-xs"
-                      >
-                        ✓ {srv.name}
+                    {artisan.services && artisan.services.length > 0 ? (
+                      artisan.services.map((srv: any, index: number) => (
+                        <span 
+                          key={index}
+                          className="bg-[#603A2A] text-[#F5EDE0] text-xs px-3 py-1 rounded-full font-medium shadow-xs"
+                        >
+                          ✓ {srv.name}
+                        </span>
+                      ))
+                    ) : (
+                      <span className="bg-[#F5EDE0] text-[#8E887F] text-xs px-3 py-1 rounded-full font-medium italic border border-[#CDB58E]/30">
+                        Prestations définies sur devis ou appel
                       </span>
-                    ))}
-                    <span className="bg-[#2A1B15] text-[#CDB58E] text-xs px-3 py-1 rounded-full font-medium">
-                      + Sur-mesure
-                    </span>
+                    )}
+                    {artisan.services && artisan.services.length > 0 && (
+                      <span className="bg-[#2A1B15] text-[#CDB58E] text-xs px-3 py-1 rounded-full font-medium">
+                        + Sur-mesure
+                      </span>
+                    )}
                   </div>
                 </div>
 
                 {/* Compétences (barres de progression couleur #CDB58E) */}
-                <div>
-                  <h4 className="font-sans font-bold text-xs text-[#2A1B15] uppercase tracking-wider mb-3 text-[#8E887F]">
-                    Compétences Techniques & Précision
-                  </h4>
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                    {artisan.skills?.map((skill: any, idx: number) => (
-                      <div key={idx} className="space-y-1">
-                        <div className="flex justify-between text-xs">
-                          <span className="font-medium text-[#2A1B15]">{skill.name}</span>
-                          <span className="font-bold text-[#CDB58E] font-badge">{skill.percentage}%</span>
+                {artisan.skills && artisan.skills.length > 0 && (
+                  <div>
+                    <h4 className="font-sans font-bold text-xs text-[#2A1B15] uppercase tracking-wider mb-3 text-[#8E887F]">
+                      Compétences Techniques & Précision
+                    </h4>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                      {artisan.skills.map((skill: any, idx: number) => (
+                        <div key={idx} className="space-y-1">
+                          <div className="flex justify-between text-xs">
+                            <span className="font-medium text-[#2A1B15]">{skill.name}</span>
+                            <span className="font-bold text-[#CDB58E] font-badge">{skill.percentage}%</span>
+                          </div>
+                          <div className="w-full h-2 bg-[#F5EDE0] rounded-full overflow-hidden">
+                            <div 
+                              className="h-full bg-[#CDB58E] rounded-full transition-all duration-1000"
+                              style={{ width: `${skill.percentage}%` }}
+                            />
+                          </div>
                         </div>
-                        <div className="w-full h-2 bg-[#F5EDE0] rounded-full overflow-hidden">
-                          <div 
-                            className="h-full bg-[#CDB58E] rounded-full transition-all duration-1000"
-                            style={{ width: `${skill.percentage}%` }}
-                          />
-                        </div>
-                      </div>
-                    ))}
+                      ))}
+                    </div>
                   </div>
-                </div>
+                )}
 
                 {/* Informations de base complémentaires */}
                 <div className="pt-2 border-t border-[#F5EDE0] grid grid-cols-3 gap-2 text-center text-xs">
@@ -684,40 +730,58 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({
                     <div key={d} className="py-1 text-[#CDB58E] font-badge uppercase">{d}</div>
                   ))}
 
-                  {/* Empty offsets */}
-                  <div className="p-2 text-gray-300 bg-gray-50 rounded">25</div>
-                  <div className="p-2 text-gray-300 bg-gray-50 rounded">26</div>
-                  <div className="p-2 text-gray-300 bg-gray-50 rounded">27</div>
-                  <div className="p-2 text-gray-300 bg-gray-50 rounded">28</div>
-                  <div className="p-2 text-gray-300 bg-gray-50 rounded">29</div>
-                  <div className="p-2 text-gray-300 bg-gray-50 rounded">30</div>
+                  {/* Compute current month calendar */}
+                  {(() => {
+                    const now = new Date();
+                    const year = now.getFullYear();
+                    const month = now.getMonth(); // 0-indexed
+                    const firstDay = new Date(year, month, 1).getDay(); // 0=Sun
+                    // Convert to Mon=0 format
+                    const offset = firstDay === 0 ? 6 : firstDay - 1;
+                    const daysInMonth = new Date(year, month + 1, 0).getDate();
+                    const today = now.getDate();
+                    
+                    const busyDatesSet = new Set(artisan.busyDates || []);
+                    
+                    const cells = [];
+                    
+                    // Empty offset cells for previous month
+                    for (let i = 0; i < offset; i++) {
+                      cells.push(
+                        <div key={`empty-${i}`} className="p-2 text-gray-300 bg-gray-50 rounded"></div>
+                      );
+                    }
 
-                  {/* Real June days */}
-                  {[...Array(30)].map((_, i) => {
-                    const day = i + 1;
-                    // Jours non disponibles : grisés, barré
-                    // Simulate random busy days
-                    const isBusy = artisan.availability === 'busy' 
-                      ? day < 13 
-                      : [2, 5, 6, 12, 14, 19, 20, 26].includes(day);
+                    // Real days
+                    for (let day = 1; day <= daysInMonth; day++) {
+                      const dateStr = `${year}-${String(month + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+                      const isBusy = busyDatesSet.has(dateStr);
+                      const isPast = day < today;
+                      const isDisabled = isBusy || isPast;
 
-                    return (
-                      <button
-                        key={day}
-                        disabled={isBusy}
-                        onClick={() => triggerRdv(day)}
-                        className={`p-2 sm:p-3 rounded-lg border transition-all text-center flex flex-col items-center justify-center ${
-                          isBusy 
-                            ? 'bg-gray-100 text-gray-400 border-gray-200 cursor-not-allowed line-through opacity-60' 
-                            : 'bg-[#F5EDE0]/40 text-[#2A1B15] border-[#CDB58E]/40 hover:bg-[#CDB58E] hover:text-[#2A1B15] font-bold cursor-pointer shadow-xs'
-                        }`}
-                        title={isBusy ? 'Journée complète réservée' : 'Cliquer pour prendre RDV'}
-                      >
-                        <span className="text-sm block">{day}</span>
-                        {!isBusy && <span className="text-[8px] text-[#603A2A] block font-sans">Dispo</span>}
-                      </button>
-                    );
-                  })}
+                      cells.push(
+                        <button
+                          key={day}
+                          disabled={isDisabled}
+                          onClick={() => triggerRdv(day)}
+                          className={`p-2 sm:p-3 rounded-lg border transition-all text-center flex flex-col items-center justify-center ${
+                            isBusy 
+                              ? 'bg-red-50 text-red-400 border-red-200 cursor-not-allowed line-through opacity-70' 
+                              : isPast
+                                ? 'bg-gray-50 text-gray-300 border-gray-200 cursor-not-allowed opacity-50'
+                                : 'bg-emerald-50/40 text-[#2A1B15] border-emerald-300/60 hover:bg-emerald-100 hover:border-emerald-400 font-bold cursor-pointer shadow-xs'
+                          }`}
+                          title={isBusy ? 'Journée réservée' : isPast ? 'Jour passé' : 'Cliquer pour prendre RDV'}
+                        >
+                          <span className="text-sm block">{day}</span>
+                          {isBusy && <span className="text-[8px] block font-sans">Occupé</span>}
+                          {!isBusy && !isPast && <span className="text-[8px] text-emerald-600 block font-sans">Dispo</span>}
+                        </button>
+                      );
+                    }
+
+                    return cells;
+                  })()}
                 </div>
 
                 <div className="text-[11px] text-[#8E887F] text-center pt-2 italic">
@@ -799,18 +863,23 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({
                 )}
               </div>
 
-              {/* Zone de localisation avec mini-carte */}
+              {/* Zone de localisation avec carte */}
               <div className="space-y-1.5 pt-2 border-t border-[#F5EDE0]">
                 <span className="text-xs text-[#8E887F] block font-medium">Zone couverte principale</span>
                 
-                {/* Mini-carte illustrative */}
-                <div className="w-full h-28 bg-[#111B2F] rounded-lg overflow-hidden relative border border-[#8E887F]/30 flex items-center justify-center">
-                  {/* Abstraite carte */}
-                  <div className="absolute inset-0 opacity-40 zellige-pattern" />
-                  <div className="absolute w-16 h-16 rounded-full bg-[#603A2A]/40 border border-[#CDB58E] animate-ping" />
-                  <div className="relative z-10 text-center p-2 bg-[#2A1B15]/90 rounded border border-[#CDB58E]/40">
+                <div className="w-full h-40 bg-[#111B2F] rounded-lg overflow-hidden relative border border-[#8E887F]/30">
+                  <iframe 
+                    width="100%" 
+                    height="100%" 
+                    frameBorder="0" 
+                    scrolling="no" 
+                    marginHeight={0} 
+                    marginWidth={0} 
+                    src={`https://maps.google.com/maps?q=${artisan.lat},${artisan.lng}&hl=fr&z=14&output=embed`}
+                    className="absolute inset-0 grayscale contrast-125 opacity-80"
+                  />
+                  <div className="absolute bottom-2 left-2 z-10 text-center p-1.5 px-3 bg-[#2A1B15]/90 rounded border border-[#CDB58E]/40 shadow-sm backdrop-blur-sm">
                     <span className="text-[10px] text-[#CDB58E] font-bold block">📍 {artisan.city}</span>
-                    <span className="text-[9px] text-white block">Rayon 30 km</span>
                   </div>
                 </div>
               </div>

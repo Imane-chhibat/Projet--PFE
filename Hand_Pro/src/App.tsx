@@ -10,10 +10,12 @@ import Login from './components/Login';
 import Choix from './components/Choix';
 import InscriptionArtisan from './components/InscriptionArtisan';
 import InscriptionClient from './components/InscriptionClient';
-import MonProfilArtisan from './components/MonProfilArtisan';
+import { NotificationsPage } from './components/NotificationsPage';
+import { ProfilClient } from './components/ProfilClient';
+import { ChangePassword } from './components/ChangePassword';
 import { api } from './utils/api';
 export default function App() {
-  const [activePage, setActivePage] = useState<'home' | 'search' | 'gps' | 'profile' | 'login' | 'choix' | 'inscription_artisan' | 'inscription_client' | 'mon_profil'>('home');
+  const [activePage, setActivePage] = useState<'home' | 'search' | 'gps' | 'profile' | 'login' | 'choix' | 'inscription_artisan' | 'inscription_client' | 'mon_profil' | 'change_password' | 'notifications' | 'client_profile'>('home');
   const [userType, setUserType] = useState<'Visitor' | 'Registered User' | 'Artisan'>('Visitor');
   const [dataLoaded, setDataLoaded] = useState(false);
 
@@ -87,16 +89,18 @@ export default function App() {
     <div className="min-h-screen flex flex-col bg-[#2A1B15] text-[#F5EDE0] font-sans selection:bg-[#CDB58E] selection:text-[#2A1B15]">
 
       {/* NAVBAR — reçoit onOpenLogin pour que "Se connecter" ouvre la modale */}
-      <Navbar
-        activePage={activePage}
-        setActivePage={(page) => {
-          setActivePage(page);
-          window.scrollTo({ top: 0, behavior: 'smooth' });
-        }}
-        userType={userType}
-        setUserType={setUserType}
-        onOpenLogin={() => setActivePage('login')} // ← Ouvre la page de connexion
-      />
+      {activePage !== 'change_password' && (
+        <Navbar
+          activePage={activePage}
+          setActivePage={(page) => {
+            setActivePage(page);
+            window.scrollTo({ top: 0, behavior: 'smooth' });
+          }}
+          userType={userType}
+          setUserType={setUserType}
+          onOpenLogin={() => setActivePage('login')} // ← Ouvre la page de connexion
+        />
+      )}
 
       {/* PAGES */}
       <div className="flex-1 flex flex-col">
@@ -137,13 +141,22 @@ export default function App() {
         {activePage === 'inscription_client' && (
           <InscriptionClient />
         )}
+        {activePage === 'notifications' && (
+          <NotificationsPage />
+        )}
+        {activePage === 'client_profile' && (
+          <ProfilClient />
+        )}
         {activePage === 'mon_profil' && (
           <MonProfilArtisan onBack={() => { setActivePage('home'); window.scrollTo({ top: 0, behavior: 'smooth' }); }} />
+        )}
+        {activePage === 'change_password' && (
+          <ChangePassword onBack={() => { setActivePage('mon_profil'); window.scrollTo({ top: 0, behavior: 'smooth' }); }} />
         )}
       </div>
 
       {/* FOOTER */}
-      {activePage !== 'login' && activePage !== 'choix' && activePage !== 'inscription_artisan' && activePage !== 'inscription_client' && activePage !== 'mon_profil' && (
+      {activePage !== 'login' && activePage !== 'choix' && activePage !== 'inscription_artisan' && activePage !== 'inscription_client' && activePage !== 'mon_profil' && activePage !== 'change_password' && (
         <Footer
           setActivePage={(page) => {
             setActivePage(page as any);

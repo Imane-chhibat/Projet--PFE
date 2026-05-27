@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
 use App\Models\ArtisanProfile;
+use App\Models\ClientRequest;
 use App\Models\Review;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -49,6 +50,9 @@ class ArtisanController extends Controller
      */
     public function show(string $id): JsonResponse
     {
+        // Remove 'artisan-' prefix if it exists
+        $id = str_replace('artisan-', '', $id);
+        
         $profile = ArtisanProfile::with(['user', 'category', 'services', 'skills', 'portfolioItems', 'reviews'])
             ->findOrFail($id);
 
@@ -60,6 +64,7 @@ class ArtisanController extends Controller
      */
     public function addReview(Request $request, string $id): JsonResponse
     {
+        $id = str_replace('artisan-', '', $id);
         $profile = ArtisanProfile::findOrFail($id);
 
         $validated = $request->validate([
@@ -280,6 +285,15 @@ class ArtisanController extends Controller
      */
     private function formatProfile(ArtisanProfile $p): array
     {
+        // Get busy dates from accepted client requests for this artisan
+        $busyDates = ClientRequest::where('artisan_id', $p->user_id)
+            ->whereIn('status', ['pending', 'accepted'])
+            ->pluck('requested_date')
+            ->map(fn ($d) => \Carbon\Carbon::parse($d)->format('Y-m-d'))
+            ->unique()
+            ->values()
+            ->toArray();
+
         return [
             'id'              => 'artisan-' . $p->id,
             'name'            => $p->user->name ?? 'Artisan',
@@ -295,6 +309,7 @@ class ArtisanController extends Controller
             'availability'    => $p->availability,
             'busyUntil'       => $p->busy_until,
             'busyDays'        => $p->busy_days ?? [],
+            'busyDates'       => $busyDates,
             'description'     => $p->description ?? '',
             'services'        => $p->services->map(fn ($s) => [
                 'name'        => $s->name,

@@ -26,6 +26,7 @@ class User extends Authenticatable
         'role',
         'phone',
         'city',
+        'avatar',
     ];
 
     /**
@@ -34,6 +35,24 @@ class User extends Authenticatable
     public function artisanProfile()
     {
         return $this->hasOne(ArtisanProfile::class);
+    }
+
+    /**
+     * Get the favorite artisans for the user.
+     */
+    public function favorites()
+    {
+        return $this->belongsToMany(ArtisanProfile::class, 'favorites', 'user_id', 'artisan_profile_id')
+                    ->withTimestamps();
+    }
+
+    /**
+     * Get the saved portfolio items for the user.
+     */
+    public function savedPortfolios()
+    {
+        return $this->belongsToMany(PortfolioItem::class, 'saved_portfolios', 'user_id', 'portfolio_item_id')
+                    ->withTimestamps();
     }
 
     /**

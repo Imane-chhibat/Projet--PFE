@@ -80,19 +80,80 @@ export const api = {
     return res.json();
   },
 
-  async register(data: RegisterInput) {
+  async register(data: RegisterInput | FormData) {
+    const isFormData = data instanceof FormData;
     const res = await fetch(`${API_BASE}/register`, {
       method: 'POST',
-      headers: { 
+      headers: isFormData ? {
+        'Accept': 'application/json'
+      } : { 
         'Content-Type': 'application/json',
         'Accept': 'application/json'
       },
-      body: JSON.stringify(data),
+      body: isFormData ? data : JSON.stringify(data),
     });
     if (!res.ok) {
       const err = await res.json();
       throw new Error(err.message || 'Erreur lors de l\'inscription');
     }
+    return res.json();
+  },
+
+  async createClientRequest(artisanId: string, requestedDate: string) {
+    const token = localStorage.getItem('auth_token');
+    // Extract numeric ID from formatted artisan ID (e.g. "artisan-5" → 5)
+    const numericId = artisanId.replace('artisan-', '');
+    const res = await fetch(`${API_BASE}/requests`, {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${token}`,
+        'Content-Type': 'application/json',
+        'Accept': 'application/json',
+      },
+      body: JSON.stringify({ artisan_id: numericId, requested_date: requestedDate }),
+    });
+    if (!res.ok) {
+      const err = await res.json();
+      throw new Error(err.message || 'Erreur lors de la création de la demande');
+    }
+    return res.json();
+  },
+
+  async getArtisanRequests() {
+    const token = localStorage.getItem('auth_token');
+    const res = await fetch(`${API_BASE}/artisan/requests`, {
+      headers: {
+        'Authorization': `Bearer ${token}`,
+        'Accept': 'application/json',
+      },
+    });
+    if (!res.ok) throw new Error('Erreur lors de la récupération des demandes');
+    return res.json();
+  },
+
+  async acceptClientRequest(requestId: string | number) {
+    const token = localStorage.getItem('auth_token');
+    const res = await fetch(`${API_BASE}/requests/${requestId}/accept`, {
+      method: 'PUT',
+      headers: {
+        'Authorization': `Bearer ${token}`,
+        'Accept': 'application/json',
+      },
+    });
+    if (!res.ok) throw new Error('Erreur lors de la validation de la demande');
+    return res.json();
+  },
+
+  async markRequestsAsRead() {
+    const token = localStorage.getItem('auth_token');
+    const res = await fetch(`${API_BASE}/artisan/requests/mark-read`, {
+      method: 'PUT',
+      headers: {
+        'Authorization': `Bearer ${token}`,
+        'Accept': 'application/json',
+      },
+    });
+    if (!res.ok) throw new Error('Erreur lors de la mise à jour des notifications');
     return res.json();
   },
 
@@ -177,5 +238,21 @@ export const api = {
       throw new Error(err.message || 'Erreur lors de la suppression de l\'image');
     }
     return res.json();
+  },
+
+  async changePassword(data: {current_password: string, password: string, password_confirmation: string}) {
+    const token = localStorage.getItem('auth_token');
+    const res = await fetch(`${API_BASE}/change-password`, {
+      method: 'PUT',
+      headers: {
+        'Authorization': `Bearer ${token}`,
+        'Content-Type': 'application/json',
+        'Accept': 'application/json',
+      },
+      body: JSON.stringify(data)
+    });
+    const result = await res.json();
+    if (!res.ok) throw new Error(result.message || 'Erreur lors du changement de mot de passe');
+    return result;
   },
 };

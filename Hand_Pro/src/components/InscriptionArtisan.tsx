@@ -69,7 +69,6 @@ export default function InscriptionArtisan({ onSuccess }: { onSuccess?: () => vo
   const [form, setForm] = useState({
     nom: "",
     prenom: "",
-    numero: "",
     cin: "",
     telephone: "",
     email: "",
@@ -79,6 +78,7 @@ export default function InscriptionArtisan({ onSuccess }: { onSuccess?: () => vo
     password: "",
     confirmPassword: "",
     conditions: false,
+    description: "",
   });
   const [showPwd, setShowPwd] = useState(false);
   const [showConfirmPwd, setShowConfirmPwd] = useState(false);
@@ -132,17 +132,24 @@ export default function InscriptionArtisan({ onSuccess }: { onSuccess?: () => vo
     }
 
     try {
-      const data = await api.register({
-        name: `${form.prenom} ${form.nom}`,
-        email: form.email,
-        password: form.password,
-        role: "Artisan",
-        specialty: form.metier,
-        city: form.ville,
-        phone: form.telephone,
-        cin: form.cin,
-        is_certified: form.certifie,
-      });
+      const formData = new FormData();
+      formData.append("name", `${form.prenom} ${form.nom}`);
+      formData.append("email", form.email);
+      formData.append("password", form.password);
+      formData.append("role", "Artisan");
+      formData.append("specialty", form.metier);
+      formData.append("city", form.ville);
+      formData.append("phone", form.telephone);
+      formData.append("cin", form.cin);
+      formData.append("is_certified", form.certifie ? "1" : "0");
+      formData.append("description", form.description);
+      
+      const attestationInput = e.target.querySelector('input[name="attestation"]');
+      if (attestationInput && attestationInput.files[0]) {
+        formData.append("attestation", attestationInput.files[0]);
+      }
+
+      const data = await api.register(formData);
 
       // Store token
       if (data.token) {
@@ -219,21 +226,13 @@ export default function InscriptionArtisan({ onSuccess }: { onSuccess?: () => vo
               />
             </div>
 
-            {/* CIN + Numéro */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            {/* CIN */}
+            <div className="grid grid-cols-1 gap-4">
               <InputField
                 icon={<IdCard className="w-5 h-5" />}
                 name="cin"
                 placeholder="CIN (Carte d'identité)"
                 value={form.cin}
-                onChange={handleChange}
-                required
-              />
-              <InputField
-                icon={<Hash className="w-5 h-5" />}
-                name="numero"
-                placeholder="Numéro"
-                value={form.numero}
                 onChange={handleChange}
                 required
               />
@@ -279,6 +278,25 @@ export default function InscriptionArtisan({ onSuccess }: { onSuccess?: () => vo
                 placeholder="Type d'artisan"
                 options={categories}
               />
+            </div>
+
+            {/* Description */}
+            <div className="grid grid-cols-1 gap-4">
+              <div className="flex items-start backdrop-blur-md bg-white/15 border border-white/25 rounded-2xl px-5 py-3.5 focus-within:border-amber-300/60 focus-within:bg-white/20 transition">
+                <span className="text-white/80 mr-3 mt-1 shrink-0">
+                  <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M4 6h16M4 12h16M4 18h7" />
+                  </svg>
+                </span>
+                <textarea
+                  name="description"
+                  placeholder="Petite description (votre expérience, savoir-faire...)"
+                  value={form.description}
+                  onChange={handleChange}
+                  rows={2}
+                  className="bg-transparent outline-none text-white placeholder-white/70 w-full resize-none"
+                />
+              </div>
             </div>
 
             {/* Mot de passe */}
@@ -384,6 +402,20 @@ export default function InscriptionArtisan({ onSuccess }: { onSuccess?: () => vo
                 </p>
               </div>
             </label>
+
+            {/* Attestation */}
+            {form.certifie && (
+              <div className="flex flex-col gap-2 backdrop-blur-md bg-white/10 border border-white/20 rounded-2xl px-5 py-4 transition animate-[fadeIn_0.3s_ease-out]">
+                <label className="text-white text-sm font-medium">Joindre votre attestation / diplôme</label>
+                <input
+                  type="file"
+                  name="attestation"
+                  accept=".pdf,image/*"
+                  required={form.certifie}
+                  className="text-sm text-white/80 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-amber-400 file:text-[#2A1B15] hover:file:bg-amber-300 transition"
+                />
+              </div>
+            )}
 
             {/* Conditions */}
             <label className="flex items-center gap-2 cursor-pointer pl-2">

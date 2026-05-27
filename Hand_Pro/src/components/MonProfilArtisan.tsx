@@ -73,6 +73,7 @@ export default function MonProfilArtisan({ onBack }: { onBack?: () => void }) {
   const [avatarFile, setAvatarFile] = useState<File | null>(null);
   const [coverFile, setCoverFile] = useState<File | null>(null);
 
+  // Profile state and helpers
   useEffect(() => {
     loadProfile();
   }, []);
@@ -277,11 +278,15 @@ export default function MonProfilArtisan({ onBack }: { onBack?: () => void }) {
               </label>
             </div>
           ) : null}
-          <img 
-            src={form.coverPhoto || profile?.coverPhoto || "https://images.unsplash.com/photo-1558618666-fcd25c85cd64?auto=format&fit=crop&w=1200&q=80"} 
-            alt="Couverture" 
-            className="w-full h-full object-cover opacity-30 mix-blend-overlay object-center absolute inset-0" 
-          />
+          {(form.coverPhoto || profile?.coverPhoto) ? (
+            <img 
+              src={form.coverPhoto || profile?.coverPhoto} 
+              alt="Couverture" 
+              className="w-full h-full object-cover opacity-30 mix-blend-overlay object-center absolute inset-0" 
+            />
+          ) : (
+            <div className="w-full h-full absolute inset-0 bg-[#2A1B15] opacity-50" />
+          )}
           <div className="absolute inset-0 zellige-pattern opacity-60" />
           
           {/* Navigation back helper */}
@@ -294,6 +299,8 @@ export default function MonProfilArtisan({ onBack }: { onBack?: () => void }) {
               <span>Retour</span>
             </button>
           )}
+
+
         </div>
 
         {/* Contenu principal du header */}
@@ -304,15 +311,22 @@ export default function MonProfilArtisan({ onBack }: { onBack?: () => void }) {
             {/* Colonne Gauche: Photo + Titres */}
             <div className="flex flex-col md:flex-row items-center md:items-end gap-5 text-center md:text-left w-full md:w-auto">
               
-              {/* Photo de profil */}
-              <div className="relative shrink-0">
+              {/* Photo de profil et Espace Profil */}
+              <div className="relative shrink-0 flex flex-col items-center">
+
                 {editing ? (
                   <div className="w-28 h-28 md:w-32 md:h-32 rounded-full bg-[#603A2A]/80 flex items-center justify-center border-4 border-white shadow-xl relative overflow-hidden group cursor-pointer z-10">
-                    <img 
-                      src={form.avatar || profile?.avatar || "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=crop&w=200&q=80"} 
-                      alt="Avatar Preview" 
-                      className="absolute inset-0 w-full h-full object-cover opacity-50"
-                    />
+                    {form.avatar || profile?.avatar ? (
+                      <img 
+                        src={form.avatar || profile?.avatar} 
+                        alt="Avatar Preview" 
+                        className="absolute inset-0 w-full h-full object-cover opacity-50"
+                      />
+                    ) : (
+                      <span className="absolute inset-0 flex items-center justify-center text-[#CDB58E] font-bold text-5xl opacity-50">
+                        {form.name?.charAt(0).toUpperCase() || profile?.name?.charAt(0).toUpperCase() || 'A'}
+                      </span>
+                    )}
                     <label className="absolute inset-0 flex flex-col items-center justify-center text-white cursor-pointer hover:bg-black/40 transition-all">
                       <Edit3 size={24} className="mb-1" />
                       <span className="text-[10px] font-bold">Modifier</span>
@@ -331,11 +345,17 @@ export default function MonProfilArtisan({ onBack }: { onBack?: () => void }) {
                     </label>
                   </div>
                 ) : (
-                  <img 
-                    src={form.avatar || profile?.avatar || "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=crop&w=200&q=80"} 
-                    alt={profile?.name} 
-                    className="w-28 h-28 md:w-32 md:h-32 rounded-full object-cover border-4 border-white shadow-xl object-top bg-[#2A1B15] relative z-10"
-                  />
+                  (form.avatar || profile?.avatar) ? (
+                    <img 
+                      src={form.avatar || profile?.avatar} 
+                      alt={profile?.name} 
+                      className="w-28 h-28 md:w-32 md:h-32 rounded-full object-cover border-4 border-white shadow-xl object-top bg-[#2A1B15] relative z-10"
+                    />
+                  ) : (
+                    <div className="w-28 h-28 md:w-32 md:h-32 rounded-full border-4 border-white shadow-xl bg-[#2A1B15] flex items-center justify-center text-[#CDB58E] font-bold text-5xl overflow-hidden relative z-10">
+                      <span>{profile?.name?.charAt(0).toUpperCase() || 'A'}</span>
+                    </div>
+                  )
                 )}
                 
                 {/* Badge certifié */}
@@ -937,10 +957,18 @@ export default function MonProfilArtisan({ onBack }: { onBack?: () => void }) {
                   {/* Real days */}
                   {[...Array(30)].map((_, i) => {
                     const day = i + 1;
-                    const isBusy = editing ? form.busyDays.includes(day) : (profile?.busyDays?.includes(day) || false);
+                    
+                    // Extract days from actual requested appointments
+                    const appointmentDays = profile?.busyDates
+                      ? profile.busyDates.map((dateStr: string) => parseInt(dateStr.split('-')[2], 10))
+                      : [];
+                    const isAppointmentDay = appointmentDays.includes(day);
+                    
+                    // A day is busy if it's an appointment day, OR if it's manually marked as busy
+                    const isBusy = isAppointmentDay || (editing ? form.busyDays.includes(day) : (profile?.busyDays?.includes(day) || false));
 
                     const toggleDay = () => {
-                      if (!editing) return;
+                      if (!editing || isAppointmentDay) return;
                       const newBusyDays = form.busyDays.includes(day)
                         ? form.busyDays.filter(d => d !== day)
                         : [...form.busyDays, day];
@@ -951,7 +979,7 @@ export default function MonProfilArtisan({ onBack }: { onBack?: () => void }) {
                       <button
                         key={day}
                         onClick={toggleDay}
-                        disabled={!editing}
+                        disabled={!editing || isAppointmentDay}
                         className={`p-2 sm:p-3 rounded-lg border transition-all text-center flex flex-col items-center justify-center ${
                           isBusy 
                             ? 'bg-gray-100 text-gray-400 border-gray-200 line-through opacity-60' 
@@ -1028,28 +1056,28 @@ export default function MonProfilArtisan({ onBack }: { onBack?: () => void }) {
                     <span className="font-mono font-bold text-[#603A2A] text-sm tracking-wide">
                       {profile?.phone || "Non renseigné"}
                     </span>
-                    {profile?.phone && (
-                      <a 
-                        href={`tel:${profile.phone}`}
-                        className="text-[10px] bg-[#603A2A] text-white px-2 py-1 rounded hover:bg-[#603A2A]/80 font-medium"
-                      >
-                        Appeler
-                      </a>
-                    )}
+                    {/* Button removed as per request */}
                   </div>
                 )}
               </div>
 
-              {/* Zone de localisation */}
+              {/* Zone de localisation avec carte */}
               <div className="space-y-1.5 pt-2 border-t border-[#F5EDE0]">
                 <span className="text-xs text-[#8E887F] block font-medium">Zone couverte principale</span>
                 
-                <div className="w-full h-28 bg-[#111B2F] rounded-lg overflow-hidden relative border border-[#8E887F]/30 flex items-center justify-center">
-                  <div className="absolute inset-0 opacity-40 zellige-pattern" />
-                  <div className="absolute w-16 h-16 rounded-full bg-[#603A2A]/40 border border-[#CDB58E] animate-ping" />
-                  <div className="relative z-10 text-center p-2 bg-[#2A1B15]/90 rounded border border-[#CDB58E]/40">
+                <div className="w-full h-40 bg-[#111B2F] rounded-lg overflow-hidden relative border border-[#8E887F]/30">
+                  <iframe 
+                    width="100%" 
+                    height="100%" 
+                    frameBorder="0" 
+                    scrolling="no" 
+                    marginHeight={0} 
+                    marginWidth={0} 
+                    src={`https://maps.google.com/maps?q=${profile?.lat || 33.5731},${profile?.lng || -7.5898}&hl=fr&z=14&output=embed`}
+                    className="absolute inset-0 grayscale contrast-125 opacity-80"
+                  />
+                  <div className="absolute bottom-2 left-2 z-10 text-center p-1.5 px-3 bg-[#2A1B15]/90 rounded border border-[#CDB58E]/40 shadow-sm backdrop-blur-sm pointer-events-none">
                     <span className="text-[10px] text-[#CDB58E] font-bold block">📍 {profile?.city}</span>
-                    <span className="text-[9px] text-white block">Rayon 30 km</span>
                   </div>
                 </div>
               </div>
