@@ -111,7 +111,18 @@ class ArtisanController extends Controller
             ->first();
 
         if (!$profile) {
-            return response()->json(['message' => 'Profil artisan non trouvé'], 404);
+            // Create a default profile if none exists
+            $profile = ArtisanProfile::create([
+                'user_id' => $user->id,
+                'category_id' => null,
+                'specialty' => 'Artisan',
+                'description' => '',
+                'rating' => 0,
+                'review_count' => 0,
+                'is_certified' => false,
+                'experience_years' => 0,
+                'availability' => 'available',
+            ]);
         }
 
         return response()->json($this->formatProfile($profile));

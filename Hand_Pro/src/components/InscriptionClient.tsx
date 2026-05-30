@@ -62,7 +62,11 @@ function SelectField({ icon, name, value, onChange, placeholder, options }: any)
 }
 
 // Composant principal InscriptionClient
-export default function InscriptionClient() {
+interface InscriptionClientProps {
+  onSuccess?: () => void;
+}
+
+export default function InscriptionClient({ onSuccess }: InscriptionClientProps) {
   const [form, setForm] = useState({
     nom: "",
     prenom: "",
@@ -114,15 +118,28 @@ export default function InscriptionClient() {
 
     try {
       const { api } = await import("../utils/api");
-      await api.register({
+      const res = await api.register({
         name: `${form.prenom} ${form.nom}`,
         email: form.email,
         password: form.password,
         role: "Registered User",
         city: form.ville,
+        phone: form.telephone,
       });
+
+      // Store token and user data after successful registration
+      if (res.token) {
+        localStorage.setItem('auth_token', res.token);
+      }
+      if (res.user) {
+        localStorage.setItem('auth_user', JSON.stringify(res.user));
+      }
+
       setSubmitted(true);
-      setTimeout(() => setSubmitted(false), 4000);
+      setTimeout(() => {
+        setSubmitted(false);
+        if (onSuccess) onSuccess();
+      }, 2000);
     } catch (err: any) {
       setPasswordError(err.message || "Erreur lors de l'inscription");
     }

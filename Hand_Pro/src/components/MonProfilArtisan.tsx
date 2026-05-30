@@ -49,6 +49,8 @@ export default function MonProfilArtisan({ onBack }: { onBack?: () => void }) {
   const [lightboxImg, setLightboxImg] = useState<{url: string; caption: string} | null>(null);
 
   const [activeTab, setActiveTab] = useState<'about' | 'portfolio' | 'services' | 'reviews' | 'calendar'>('about');
+  const [requests, setRequests] = useState<any[]>([]);
+  const [loadingRequests, setLoadingRequests] = useState(false);
 
   const [form, setForm] = useState({
     name: "", 
@@ -77,6 +79,56 @@ export default function MonProfilArtisan({ onBack }: { onBack?: () => void }) {
   useEffect(() => {
     loadProfile();
   }, []);
+
+  useEffect(() => {
+    loadRequests();
+  }, []);
+
+  const loadRequests = async () => {
+    try {
+      setLoadingRequests(true);
+      const data = await api.getArtisanRequests();
+      setRequests(data.requests || []);
+    } catch (err: any) {
+      setError(err.message);
+    } finally {
+      setLoadingRequests(false);
+    }
+  };
+
+  const handleAcceptRequest = async (requestId: number) => {
+    try {
+      const request = requests.find((r: any) => r.id === requestId);
+      if (request && request.client?.phone) {
+        // Formater le numéro de téléphone pour WhatsApp
+        const phone = request.client.phone.replace(/\D/g, '');
+        const message = encodeURIComponent(`Bonjour! J'ai accepté votre demande de rendez-vous pour le ${new Date(request.requested_date).toLocaleDateString('fr-FR')}. Quel type de service souhaitez-vous recevoir?`);
+        const whatsappUrl = `https://wa.me/${phone}?text=${message}`;
+        
+        // Ouvrir WhatsApp
+        window.open(whatsappUrl, '_blank');
+        
+        // Mettre à jour le statut de la demande
+        await api.acceptClientRequest(requestId);
+        setToast("Demande acceptée avec succès !");
+        loadRequests();
+        setTimeout(() => setToast(""), 3000);
+      }
+    } catch (err: any) {
+      setError(err.message);
+    }
+  };
+
+  const handleRejectRequest = async (requestId: number) => {
+    try {
+      await api.rejectClientRequest(requestId);
+      setToast("Demande refusée");
+      loadRequests();
+      setTimeout(() => setToast(""), 3000);
+    } catch (err: any) {
+      setError(err.message);
+    }
+  };
 
   const loadProfile = async () => {
     try {
@@ -480,8 +532,71 @@ export default function MonProfilArtisan({ onBack }: { onBack?: () => void }) {
         </div>
       </section>
 
+      {/* BARRE DE NOTIFICATION DES DEMANDES */}
+      {requests.filter((r: any) => r.status === 'pending').length > 0 && (
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-4">
+          <div className="bg-gradient-to-r from-[#603A2A] to-[#8B5E3C] rounded-xl p-4 shadow-lg border border-[#CDB58E]/30">
+            <div className="flex items-center justify-between mb-3">
+              <div className="flex items-center gap-2">
+                <div className="w-2 h-2 bg-emerald-400 rounded-full animate-pulse"></div>
+                <h3 className="text-white font-bold text-sm">
+                  {requests.filter((r: any) => r.status === 'pending').length} demande(s) en attente
+                </h3>
+              </div>
+              <button
+                onClick={() => setRequests([])}
+                className="text-white/70 hover:text-white text-xs"
+              >
+                Fermer
+              </button>
+            </div>
+            <div className="space-y-2">
+              {requests.filter((r: any) => r.status === 'pending').slice(0, 2).map((request: any) => (
+                <div
+                  key={request.id}
+                  className="bg-white/10 backdrop-blur-sm rounded-lg p-3 flex items-center justify-between"
+                >
+                  <div className="flex items-center gap-3">
+                    <div className="w-8 h-8 rounded-full bg-white/20 flex items-center justify-center text-white font-bold text-xs">
+                      {request.client?.name?.charAt(0).toUpperCase() || 'C'}
+                    </div>
+                    <div>
+                      <p className="text-white text-xs font-semibold">{request.client?.name || 'Client'}</p>
+                      <p className="text-white/70 text-xs">
+                        📅 {new Date(request.requested_date).toLocaleDateString('fr-FR')}
+                      </p>
+                    </div>
+                  </div>
+                  <div className="flex gap-2">
+                    <button
+                      onClick={() => handleAcceptRequest(request.id)}
+                      className="px-2 py-1 bg-emerald-500 text-white rounded text-xs font-semibold hover:bg-emerald-600 transition-colors flex items-center gap-1"
+                    >
+                      <CheckCircle size={12} />
+                      Accepter
+                    </button>
+                    <button
+                      onClick={() => handleRejectRequest(request.id)}
+                      className="px-2 py-1 bg-red-500 text-white rounded text-xs font-semibold hover:bg-red-600 transition-colors flex items-center gap-1"
+                    >
+                      <X size={12} />
+                      Refuser
+                    </button>
+                  </div>
+                </div>
+              ))}
+              {requests.filter((r: any) => r.status === 'pending').length > 2 && (
+                <p className="text-white/70 text-xs text-center">
+                  +{requests.filter((r: any) => r.status === 'pending').length - 2} autre(s) demande(s)
+                </p>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* CORPS */}
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-8">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-4">
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
           
           {/* CONTENU PRINCIPAL */}

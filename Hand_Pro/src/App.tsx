@@ -12,11 +12,13 @@ import InscriptionArtisan from './components/InscriptionArtisan';
 import InscriptionClient from './components/InscriptionClient';
 import { NotificationsPage } from './components/NotificationsPage';
 import { ProfilClient } from './components/ProfilClient';
+import { ProfilAdmin } from './components/ProfilAdmin';
+import MonProfilArtisan from './components/MonProfilArtisan';
 import { ChangePassword } from './components/ChangePassword';
 import { api } from './utils/api';
 export default function App() {
-  const [activePage, setActivePage] = useState<'home' | 'search' | 'gps' | 'profile' | 'login' | 'choix' | 'inscription_artisan' | 'inscription_client' | 'mon_profil' | 'change_password' | 'notifications' | 'client_profile'>('home');
-  const [userType, setUserType] = useState<'Visitor' | 'Registered User' | 'Artisan'>('Visitor');
+  const [activePage, setActivePage] = useState<'home' | 'search' | 'gps' | 'profile' | 'login' | 'choix' | 'inscription_artisan' | 'inscription_client' | 'mon_profil' | 'change_password' | 'notifications' | 'client_profile' | 'admin_profile'>('home');
+  const [userType, setUserType] = useState<'Visitor' | 'Registered User' | 'Artisan' | 'Admin'>('Visitor');
   const [dataLoaded, setDataLoaded] = useState(false);
 
   // Auto-login au démarrage si token existe
@@ -27,8 +29,13 @@ export default function App() {
       const user = JSON.parse(storedUser);
       if (user.role === 'artisan' || user.role === 'Artisan') {
         setUserType('Artisan');
+        setActivePage('mon_profil');
+      } else if (user.role === 'admin' || user.role === 'Admin') {
+        setUserType('Admin');
+        setActivePage('home');
       } else {
         setUserType('Registered User');
+        setActivePage('home');
       }
     }
   }, []);
@@ -71,6 +78,9 @@ export default function App() {
     if (user?.role === 'Artisan' || user?.role === 'artisan') {
       setUserType('Artisan');
       setActivePage('mon_profil');
+    } else if (user?.role === 'Admin' || user?.role === 'admin') {
+      setUserType('Admin');
+      setActivePage('admin_profile');
     } else {
       setUserType('Registered User');
       setActivePage('home');
@@ -82,6 +92,13 @@ export default function App() {
   const handleArtisanRegistered = () => {
     setUserType('Artisan');
     setActivePage('mon_profil');
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
+
+  // ── Appelé après inscription client réussie ───────────────
+  const handleClientRegistered = () => {
+    setUserType('Registered User');
+    setActivePage('client_profile');
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
@@ -139,13 +156,19 @@ export default function App() {
           <InscriptionArtisan onSuccess={handleArtisanRegistered} />
         )}
         {activePage === 'inscription_client' && (
-          <InscriptionClient />
+          <InscriptionClient onSuccess={handleClientRegistered} />
         )}
         {activePage === 'notifications' && (
           <NotificationsPage />
         )}
         {activePage === 'client_profile' && (
-          <ProfilClient />
+          <ProfilClient
+            onNavigateToInscription={() => setActivePage('inscription_client')}
+            onNavigateToArtisanProfile={handleSelectArtisan}
+          />
+        )}
+        {activePage === 'admin_profile' && (
+          <ProfilAdmin />
         )}
         {activePage === 'mon_profil' && (
           <MonProfilArtisan onBack={() => { setActivePage('home'); window.scrollTo({ top: 0, behavior: 'smooth' }); }} />

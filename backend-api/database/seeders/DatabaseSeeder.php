@@ -1,7 +1,6 @@
 <?php
 
 namespace Database\Seeders;
-
 use App\Models\User;
 use App\Models\Category;
 use App\Models\ArtisanProfile;
@@ -22,7 +21,7 @@ class DatabaseSeeder extends Seeder
         User::create([
             'name' => 'Admin HandPro',
             'email' => 'admin@handpro.ma',
-            'password' => Hash::make('password'),
+            'password' => Hash::make('12345'),
             'role' => 'admin',
             'city' => 'Casablanca',
         ]);

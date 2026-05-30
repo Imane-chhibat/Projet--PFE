@@ -106,7 +106,15 @@ class AuthController extends Controller
 
         $user = User::where('email', $request->email)->first();
 
-        if (!$user || !Hash::check($request->password, $user->password)) {
+        if (!$user) {
+            \Illuminate\Support\Facades\Log::error('User not found', ['email' => $request->email]);
+            throw ValidationException::withMessages([
+                'email' => ['Identifiants incorrects'],
+            ]);
+        }
+
+        if (!Hash::check($request->password, $user->password)) {
+            \Illuminate\Support\Facades\Log::error('Password incorrect', ['email' => $request->email]);
             throw ValidationException::withMessages([
                 'email' => ['Identifiants incorrects'],
             ]);
@@ -120,7 +128,7 @@ class AuthController extends Controller
         // Map backend role to frontend
         $frontendRole = match ($user->role) {
             'artisan' => 'Artisan',
-            'admin'   => 'Registered User',
+            'admin'   => 'Admin',
             default   => 'Registered User',
         };
 
@@ -166,5 +174,33 @@ class AuthController extends Controller
         $user->save();
 
         return response()->json(['message' => 'Mot de passe modifié avec succès']);
+    }
+
+    /**
+     * GET /api/debug/admin
+     * Debug endpoint to check admin user
+     */
+    public function debugAdmin(Request $request): JsonResponse
+    {
+        $admin = User::where('email', 'admin@handpro.ma')->first();
+
+        if (!$admin) {
+            return response()->json([
+                'exists' => false,
+                'message' => 'Admin user does not exist',
+            ]);
+        }
+
+        return response()->json([
+            'exists' => true,
+            'user' => [
+                'id' => $admin->id,
+                'name' => $admin->name,
+                'email' => $admin->email,
+                'role' => $admin->role,
+                'city' => $admin->city,
+                'password_hash' => $admin->password,
+            ],
+        ]);
     }
 }

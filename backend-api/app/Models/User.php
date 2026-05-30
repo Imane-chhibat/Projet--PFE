@@ -56,6 +56,14 @@ class User extends Authenticatable
     }
 
     /**
+     * Get the applications for the artisan.
+     */
+    public function applications()
+    {
+        return $this->hasMany(Application::class, 'artisan_id');
+    }
+
+    /**
      * The attributes that should be hidden for serialization.
      *
      * @var list<string>

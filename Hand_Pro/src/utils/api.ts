@@ -15,6 +15,7 @@ export interface RegisterInput {
   specialty?: string;
   category_id?: string;
   city?: string;
+  phone?: string;
 }
 
 export const api = {
@@ -144,6 +145,19 @@ export const api = {
     return res.json();
   },
 
+  async rejectClientRequest(requestId: string | number) {
+    const token = localStorage.getItem('auth_token');
+    const res = await fetch(`${API_BASE}/requests/${requestId}/reject`, {
+      method: 'PUT',
+      headers: {
+        'Authorization': `Bearer ${token}`,
+        'Accept': 'application/json',
+      },
+    });
+    if (!res.ok) throw new Error('Erreur lors du refus de la demande');
+    return res.json();
+  },
+
   async markRequestsAsRead() {
     const token = localStorage.getItem('auth_token');
     const res = await fetch(`${API_BASE}/artisan/requests/mark-read`, {
@@ -254,5 +268,209 @@ export const api = {
     const result = await res.json();
     if (!res.ok) throw new Error(result.message || 'Erreur lors du changement de mot de passe');
     return result;
+  },
+
+  async getClientRequests() {
+    const token = localStorage.getItem('auth_token');
+    const res = await fetch(`${API_BASE}/client/requests`, {
+      headers: {
+        'Authorization': `Bearer ${token}`,
+        'Accept': 'application/json',
+      },
+    });
+    if (!res.ok) throw new Error('Erreur lors de la récupération des rendez-vous');
+    return res.json();
+  },
+
+  async getClientProfile() {
+    const token = localStorage.getItem('auth_token');
+    const res = await fetch(`${API_BASE}/client/profile`, {
+      headers: {
+        'Authorization': `Bearer ${token}`,
+        'Accept': 'application/json',
+      },
+    });
+    if (!res.ok) throw new Error('Profil non trouvé');
+    return res.json();
+  },
+
+  async updateClientProfile(formData: FormData) {
+    const token = localStorage.getItem('auth_token');
+    const res = await fetch(`${API_BASE}/client/profile/update`, {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${token}`,
+        'Accept': 'application/json',
+      },
+      body: formData,
+    });
+    if (!res.ok) {
+      const err = await res.json();
+      throw new Error(err.message || 'Erreur lors de la mise à jour');
+    }
+    return res.json();
+  },
+
+  async addFavorite(artisanId: string) {
+    const token = localStorage.getItem('auth_token');
+    const numericId = artisanId.replace('artisan-', '');
+    const res = await fetch(`${API_BASE}/client/favorites`, {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${token}`,
+        'Content-Type': 'application/json',
+        'Accept': 'application/json',
+      },
+      body: JSON.stringify({ artisan_id: numericId }),
+    });
+    if (!res.ok) {
+      const err = await res.json();
+      throw new Error(err.message || 'Erreur lors de l\'ajout aux favoris');
+    }
+    return res.json();
+  },
+
+  async removeFavorite(artisanId: string) {
+    const token = localStorage.getItem('auth_token');
+    const numericId = artisanId.replace('artisan-', '');
+    const res = await fetch(`${API_BASE}/client/favorites/${numericId}`, {
+      method: 'DELETE',
+      headers: {
+        'Authorization': `Bearer ${token}`,
+        'Accept': 'application/json',
+      },
+    });
+    if (!res.ok) {
+      const err = await res.json();
+      throw new Error(err.message || 'Erreur lors de la suppression des favoris');
+    }
+    return res.json();
+  },
+
+  async getClientFavorites() {
+    const token = localStorage.getItem('auth_token');
+    const res = await fetch(`${API_BASE}/client/favorites`, {
+      headers: {
+        'Authorization': `Bearer ${token}`,
+        'Accept': 'application/json',
+      },
+    });
+    if (!res.ok) throw new Error('Erreur lors de la récupération des favoris');
+    return res.json();
+  },
+
+  async getAdminStats() {
+    const token = localStorage.getItem('auth_token');
+    const res = await fetch(`${API_BASE}/admin/stats`, {
+      headers: {
+        'Authorization': `Bearer ${token}`,
+        'Accept': 'application/json',
+      },
+    });
+    if (!res.ok) throw new Error('Erreur lors de la récupération des statistiques');
+    return res.json();
+  },
+
+  async createAnnouncement(data: { title: string; content: string }) {
+    const token = localStorage.getItem('auth_token');
+    const res = await fetch(`${API_BASE}/admin/announcements`, {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${token}`,
+        'Content-Type': 'application/json',
+        'Accept': 'application/json',
+      },
+      body: JSON.stringify(data),
+    });
+    if (!res.ok) {
+      const err = await res.json();
+      throw new Error(err.message || 'Erreur lors de la création de l\'annonce');
+    }
+    return res.json();
+  },
+
+  async deleteAnnouncement(id: string) {
+    const token = localStorage.getItem('auth_token');
+    const res = await fetch(`${API_BASE}/admin/announcements/${id}`, {
+      method: 'DELETE',
+      headers: {
+        'Authorization': `Bearer ${token}`,
+        'Accept': 'application/json',
+      },
+    });
+    if (!res.ok) {
+      const err = await res.json();
+      throw new Error(err.message || 'Erreur lors de la suppression de l\'annonce');
+    }
+    return res.json();
+  },
+
+  async updateAnnouncement(id: string, data: { title: string; content: string; category?: string; company?: string; city?: string }) {
+    const token = localStorage.getItem('auth_token');
+    const res = await fetch(`${API_BASE}/admin/announcements/${id}`, {
+      method: 'PUT',
+      headers: {
+        'Authorization': `Bearer ${token}`,
+        'Content-Type': 'application/json',
+        'Accept': 'application/json',
+      },
+      body: JSON.stringify(data),
+    });
+    if (!res.ok) {
+      const err = await res.json();
+      throw new Error(err.message || 'Erreur lors de la mise à jour de l\'annonce');
+    }
+    return res.json();
+  },
+
+  async getAnnouncementApplications(announcementId: string) {
+    const token = localStorage.getItem('auth_token');
+    const res = await fetch(`${API_BASE}/admin/announcements/${announcementId}/applications`, {
+      headers: {
+        'Authorization': `Bearer ${token}`,
+        'Accept': 'application/json',
+      },
+    });
+    if (!res.ok) {
+      const err = await res.json();
+      throw new Error(err.message || 'Erreur lors de la récupération des candidatures');
+    }
+    return res.json();
+  },
+
+  async updateApplicationStatus(applicationId: string, status: 'accepted' | 'rejected') {
+    const token = localStorage.getItem('auth_token');
+    const res = await fetch(`${API_BASE}/admin/applications/${applicationId}/status`, {
+      method: 'PUT',
+      headers: {
+        'Authorization': `Bearer ${token}`,
+        'Content-Type': 'application/json',
+        'Accept': 'application/json',
+      },
+      body: JSON.stringify({ status }),
+    });
+    if (!res.ok) {
+      const err = await res.json();
+      throw new Error(err.message || 'Erreur lors de la mise à jour du statut');
+    }
+    return res.json();
+  },
+
+  async applyToAnnouncement(announcementId: string, message?: string) {
+    const token = localStorage.getItem('auth_token');
+    const res = await fetch(`${API_BASE}/announcements/${announcementId}/apply`, {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${token}`,
+        'Content-Type': 'application/json',
+        'Accept': 'application/json',
+      },
+      body: JSON.stringify({ message }),
+    });
+    if (!res.ok) {
+      const err = await res.json();
+      throw new Error(err.message || 'Erreur lors de la candidature');
+    }
+    return res.json();
   },
 };

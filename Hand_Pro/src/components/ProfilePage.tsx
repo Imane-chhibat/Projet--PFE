@@ -35,6 +35,7 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({
   const [activeTab, setActiveTab] = useState<'about' | 'portfolio' | 'services' | 'reviews' | 'calendar'>('about');
   const [isFavorited, setIsFavorited] = useState<boolean>(false);
   const [lightboxImg, setLightboxImg] = useState<{url: string; caption: string} | null>(null);
+  const [favoriteLoading, setFavoriteLoading] = useState<boolean>(false);
   
   // Modal RDV state
   const [showRdvModal, setShowRdvModal] = useState<boolean>(false);
@@ -292,12 +293,33 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({
 
               {/* "Ajouter aux favoris" → cœur icône */}
               <button
-                onClick={() => setIsFavorited(!isFavorited)}
+                onClick={async () => {
+                  if (userType === 'Visitor') {
+                    alert("Vous devez être connecté pour ajouter aux favoris.");
+                    setUserType('Registered User');
+                    return;
+                  }
+                  setFavoriteLoading(true);
+                  try {
+                    if (isFavorited) {
+                      await api.removeFavorite(artisanId);
+                      setIsFavorited(false);
+                    } else {
+                      await api.addFavorite(artisanId);
+                      setIsFavorited(true);
+                    }
+                  } catch (err: any) {
+                    alert(err.message || "Erreur lors de la gestion des favoris");
+                  } finally {
+                    setFavoriteLoading(false);
+                  }
+                }}
+                disabled={favoriteLoading}
                 className={`p-2.5 rounded-lg border transition-all ${
-                  isFavorited 
-                    ? 'bg-rose-950 border-rose-800 text-rose-400' 
+                  isFavorited
+                    ? 'bg-rose-950 border-rose-800 text-rose-400'
                     : 'bg-[#111B2F] border-[#8E887F]/30 text-[#8E887F] hover:text-[#CDB58E]'
-                }`}
+                } ${favoriteLoading ? 'opacity-50 cursor-not-allowed' : ''}`}
                 title="Favoris"
               >
                 <Heart size={16} className={isFavorited ? 'fill-rose-400' : ''} />
@@ -1015,7 +1037,7 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({
                     className="w-full bg-[#F5EDE0]/40 border border-[#8E887F]/30 rounded p-2 text-xs focus:outline-none focus:border-[#603A2A]"
                   >
                     <option value="">Sélectionnez dans la liste</option>
-                    {artisan.services.map((s, i) => (
+                    {artisan.services.map((s:{name: string},i: number) => (
                       <option key={i} value={s.name}>{s.name}</option>
                     ))}
                     <option value="Autre">Autre projet / Devis global</option>

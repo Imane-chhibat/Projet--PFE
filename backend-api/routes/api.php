@@ -9,6 +9,7 @@ use App\Http\Controllers\Api\AnnouncementController;
 use App\Http\Controllers\Api\TestimonialController;
 use App\Http\Controllers\Api\ClientRequestController;
 use App\Http\Controllers\Api\ClientProfileController;
+use App\Http\Controllers\Api\AdminController;
 
 /*
 |--------------------------------------------------------------------------
@@ -24,6 +25,7 @@ Route::get('/announcements', [AnnouncementController::class,'index']);
 Route::get('/testimonials',  [TestimonialController::class, 'index']);
 Route::get('/cities',        [CategoryController::class,    'cities']); // Using CategoryController for now or maybe a DataController
 Route::get('/statistics',    [ArtisanController::class,     'statistics']);
+Route::get('/debug/admin',   [AuthController::class,         'debugAdmin']);
 
 // ── Authentification ─────────────────────────────────────────
 Route::post('/register', [AuthController::class, 'register']);
@@ -48,12 +50,26 @@ Route::middleware('auth:sanctum')->group(function () {
     // ── Demandes Clients ──
     Route::post('/requests', [ClientRequestController::class, 'store']);
     Route::get('/artisan/requests', [ClientRequestController::class, 'indexArtisan']);
+    Route::get('/client/requests', [ClientRequestController::class, 'indexClient']);
     Route::put('/artisan/requests/mark-read', [ClientRequestController::class, 'markAsRead']);
     Route::put('/requests/{id}/accept', [ClientRequestController::class, 'accept']);
+    Route::put('/requests/{id}/reject', [ClientRequestController::class, 'reject']);
 
     // ── Profil Client ──
     Route::get('/client/profile', [ClientProfileController::class, 'getProfile']);
     Route::post('/client/profile/update', [ClientProfileController::class, 'updateProfile']);
-    Route::post('/client/favorites/toggle', [ClientProfileController::class, 'toggleFavorite']);
-    Route::post('/client/saved-portfolios/toggle', [ClientProfileController::class, 'toggleSavedPortfolio']);
+    Route::get('/client/favorites', [ClientProfileController::class, 'getFavorites']);
+    Route::post('/client/favorites', [ClientProfileController::class, 'addFavorite']);
+    Route::delete('/client/favorites/{artisanId}', [ClientProfileController::class, 'removeFavorite']);
+
+    // ── Admin Dashboard ──
+    Route::get('/admin/stats', [AdminController::class, 'getStats']);
+    Route::post('/admin/announcements', [AdminController::class, 'createAnnouncement']);
+    Route::put('/admin/announcements/{id}', [AdminController::class, 'updateAnnouncement']);
+    Route::delete('/admin/announcements/{id}', [AdminController::class, 'deleteAnnouncement']);
+    Route::get('/admin/announcements/{id}/applications', [AdminController::class, 'getAnnouncementApplications']);
+    Route::put('/admin/applications/{id}/status', [AdminController::class, 'updateApplicationStatus']);
+
+    // ── Applications aux annonces ──
+    Route::post('/announcements/{id}/apply', [AdminController::class, 'applyToAnnouncement']);
 });

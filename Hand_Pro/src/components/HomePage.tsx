@@ -19,7 +19,9 @@ import {
   Clock,
   CalendarCheck,
   MessageSquareHeart,
-  UserCheck
+  UserCheck,
+  Building,
+  Calendar
 } from 'lucide-react';
 import { api } from '../utils/api';
 // Remove mock data import completely
@@ -187,6 +189,7 @@ export const HomePage = ({
   const [categories, setCategories] = useState<any[]>([]);
   const [artisans, setArtisans] = useState<any[]>([]);
   const [announcements, setAnnouncements] = useState<any[]>([]);
+  const [showAllAnnouncements, setShowAllAnnouncements] = useState(false);
   const [statistics, setStatistics] = useState({ artisans: '...', cities: '...', rating: '...' });
   const [loading, setLoading] = useState(true);
 
@@ -219,9 +222,15 @@ export const HomePage = ({
     onSearch(selectedCity, selectedSpecialty);
   };
 
-  const handleApply = (id: string) => {
-    if (!appliedAnnouncements.includes(id)) {
+  const handleApply = async (id: string) => {
+    try {
+      // Extract numeric ID from formatted announcement ID (e.g. "ann-2" → 2)
+      const numericId = id.replace('ann-', '');
+      await api.applyToAnnouncement(numericId);
       setAppliedAnnouncements([...appliedAnnouncements, id]);
+      alert("Candidature envoyée avec succès");
+    } catch (err: any) {
+      alert(err.message || "Erreur lors de la candidature");
     }
   };
 
@@ -759,19 +768,17 @@ export const HomePage = ({
             </div>
 
             <button
-              onClick={() => {
-                alert("Simulateur: Affichage complet du babillard des 34 annonces disponibles au Maroc.");
-              }}
+              onClick={() => setShowAllAnnouncements(!showAllAnnouncements)}
               className="px-6 py-2 bg-[#2A1B15] text-[#CDB58E] hover:bg-[#2A1B15]/90 rounded-full text-xs font-bold shrink-0 flex items-center gap-2 transition-all shadow-md hover:shadow-lg"
             >
-              <span>Voir toutes les annonces</span>
-              <ChevronRight size={14} />
+              <span>{showAllAnnouncements ? "Voir moins d'annonces" : "Voir toutes les annonces"}</span>
+              {showAllAnnouncements ? <ChevronLeft size={14} /> : <ChevronRight size={14} />}
             </button>
           </div>
 
           {/* Cartes d'annonces (3 en ligne) */}
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            {announcements.slice(0, 3).map((ann) => {
+            {(showAllAnnouncements ? announcements : announcements.slice(0, 3)).map((ann) => {
               const isApplied = appliedAnnouncements.includes(ann.id);
               return (
                 <div
@@ -790,8 +797,9 @@ export const HomePage = ({
                     </h3>
 
                     {/* Entreprise */}
-                    <p className="text-[11px] text-[#CDB58E] font-medium mb-2.5">
-                      🏢 {ann.company}
+                    <p className="text-[11px] text-[#CDB58E] font-medium mb-2.5 flex items-center gap-1">
+                      <Building size={12} />
+                      {ann.company}
                     </p>
 
                     {/* Description */}
@@ -807,7 +815,10 @@ export const HomePage = ({
                         <MapPin size={10} className="text-[#603A2A]" />
                         {ann.city}
                       </span>
-                      <span>📅 {ann.date}</span>
+                      <span className="flex items-center gap-1">
+                        <Calendar size={10} />
+                        {ann.date}
+                      </span>
                     </div>
 
                     {/* Bouton "Postuler" */}

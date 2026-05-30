@@ -522,6 +522,31 @@ export const SearchPage = ({
                                 </span>
                               </div>
 
+                              {/* Jours disponibles */}
+                              {artisan.busyDays && artisan.busyDays.length > 0 && (
+                                <div className="pt-2 border-t border-[#F5EDE0]">
+                                  <p className="text-[10px] text-[#8E887F] mb-1">Jours disponibles ce mois:</p>
+                                  <div className="flex flex-wrap gap-1">
+                                    {[...Array(30)].map((_, i) => {
+                                      const day = i + 1;
+                                      const isBusy = artisan.busyDays.includes(day);
+                                      return (
+                                        <span
+                                          key={day}
+                                          className={`w-5 h-5 flex items-center justify-center text-[9px] rounded ${
+                                            isBusy
+                                              ? 'bg-gray-200 text-gray-400 line-through'
+                                              : 'bg-emerald-100 text-emerald-700 font-bold'
+                                          }`}
+                                        >
+                                          {day}
+                                        </span>
+                                      );
+                                    })}
+                                  </div>
+                                </div>
+                              )}
+
                             </div>
                           </div>
 
