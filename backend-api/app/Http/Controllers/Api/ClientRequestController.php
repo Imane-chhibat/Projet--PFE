@@ -142,7 +142,7 @@ class ClientRequestController extends Controller
                     'name' => $artisanUser->name,
                     'specialty' => $artisanProfile->specialty,
                     'city' => $artisanProfile->city,
-                    'avatar' => $artisanProfile->avatar ? url('storage/' . $artisanProfile->avatar) : null,
+                    'avatar' => $artisanProfile->avatar ? $artisanProfile->avatar : null,
                 ],
                 'requested_date' => $request->requested_date,
                 'status' => $request->status,

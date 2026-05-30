@@ -95,7 +95,7 @@ class ClientProfileController extends Controller
                     'name' => $artisan->user->name,
                     'specialty' => $artisan->specialty,
                     'city' => $artisan->city,
-                    'avatar' => $artisan->avatar ? url('storage/' . $artisan->avatar) : null,
+                    'avatar' => $artisan->avatar ? $artisan->avatar : null,
                 ]
             ];
         });

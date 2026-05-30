@@ -20,13 +20,15 @@ interface ProfilePageProps {
   userType: 'Visitor' | 'Registered User' | 'Artisan';
   setUserType: (type: 'Visitor' | 'Registered User' | 'Artisan') => void;
   onBackToSearch?: () => void;
+  onRequireRegistration?: () => void;
 }
 
 export const ProfilePage: React.FC<ProfilePageProps> = ({ 
   artisanId, 
   userType, 
   setUserType,
-  onBackToSearch 
+  onBackToSearch,
+  onRequireRegistration
 }) => {
   const [artisan, setArtisan] = useState<any>(null);
   const [loading, setLoading] = useState<boolean>(true);
@@ -111,7 +113,8 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({
     e.preventDefault();
     
     if (userType === 'Visitor') {
-      alert("Vous devez être connecté pour envoyer une demande.");
+      alert("Vous devez être connecté ou inscrit pour envoyer une demande.");
+      if (onRequireRegistration) onRequireRegistration();
       return;
     }
 
@@ -279,8 +282,8 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({
               <button
                 onClick={() => {
                   if (userType === 'Visitor') {
-                    alert("Numéro masqué pour les visiteurs. Basculement de la simulation en mode Utilisateur Connecté.");
-                    setUserType('Registered User');
+                    alert("Numéro masqué pour les visiteurs. Veuillez vous inscrire ou vous connecter d'abord.");
+                    if (onRequireRegistration) onRequireRegistration();
                   } else {
                     alert(`Appel direct initié au ${artisan.phone}`);
                   }
@@ -296,7 +299,7 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({
                 onClick={async () => {
                   if (userType === 'Visitor') {
                     alert("Vous devez être connecté pour ajouter aux favoris.");
-                    setUserType('Registered User');
+                    if (onRequireRegistration) onRequireRegistration();
                     return;
                   }
                   setFavoriteLoading(true);
@@ -638,13 +641,13 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({
                     <div className="bg-[#F5EDE0]/60 p-4 rounded-lg text-center space-y-2 border border-[#8E887F]/20">
                       <Lock size={16} className="mx-auto text-[#8E887F]" />
                       <p className="text-xs text-[#8E887F]">
-                        Vous devez être connecté en tant que client ou professionnel pour publier une évaluation.
+                        Vous devez être inscrit et connecté pour publier une évaluation ou prendre un rendez-vous.
                       </p>
                       <button
-                        onClick={() => setUserType('Registered User')}
+                        onClick={() => { if (onRequireRegistration) onRequireRegistration(); }}
                         className="px-3 py-1 bg-[#603A2A] text-white rounded text-xs font-medium hover:bg-[#603A2A]/90 transition-all"
                       >
-                        Simuler la Connexion
+                        S'inscrire / Se connecter
                       </button>
                     </div>
                   ) : (

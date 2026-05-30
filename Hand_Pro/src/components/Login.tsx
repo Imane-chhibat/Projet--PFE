@@ -34,6 +34,7 @@ interface PupilProps {
 
 interface LoginProps {
   onLogin?: () => void;
+  onForgotPassword?: () => void;
 }
 
 /* ── EyeBall ─────────────────────────────────────────── */
@@ -158,7 +159,7 @@ function Pupil({
 }
 
 /* ── Main Login ───────────────────────────────────────── */
-export default function Login({ onLogin }: LoginProps) {
+export default function Login({ onLogin, onForgotPassword }: LoginProps) {
   const [email, setEmail] = useState<string>("");
   const [password, setPassword] = useState<string>("");
   const [showPassword, setShowPassword] = useState<boolean>(false);
@@ -959,16 +960,24 @@ export default function Login({ onLogin }: LoginProps) {
                 >
                   Mot de passe
                 </label>
-                <a
-                  href="#"
+                <button
+                  type="button"
+                  onClick={(e) => {
+                    e.preventDefault();
+                    if (onForgotPassword) onForgotPassword();
+                  }}
                   style={{
                     fontSize: "0.7rem",
                     color: "rgba(198,167,94,0.7)",
-                    textDecoration: "none",
+                    background: "none",
+                    border: "none",
+                    padding: 0,
+                    cursor: "pointer",
+                    textDecoration: "underline",
                   }}
                 >
                   Oublié ?
-                </a>
+                </button>
               </div>
               <div style={{ position: "relative" }}>
                 <input

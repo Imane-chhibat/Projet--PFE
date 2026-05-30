@@ -12,12 +12,13 @@ import InscriptionArtisan from './components/InscriptionArtisan';
 import InscriptionClient from './components/InscriptionClient';
 import { NotificationsPage } from './components/NotificationsPage';
 import { ProfilClient } from './components/ProfilClient';
+import ForgotPassword from './components/ForgotPassword';
 import { ProfilAdmin } from './components/ProfilAdmin';
 import MonProfilArtisan from './components/MonProfilArtisan';
 import { ChangePassword } from './components/ChangePassword';
 import { api } from './utils/api';
 export default function App() {
-  const [activePage, setActivePage] = useState<'home' | 'search' | 'gps' | 'profile' | 'login' | 'choix' | 'inscription_artisan' | 'inscription_client' | 'mon_profil' | 'change_password' | 'notifications' | 'client_profile' | 'admin_profile'>('home');
+  const [activePage, setActivePage] = useState<'home' | 'search' | 'gps' | 'profile' | 'login' | 'forgot_password' | 'choix' | 'inscription_artisan' | 'inscription_client' | 'mon_profil' | 'change_password' | 'notifications' | 'client_profile' | 'admin_profile'>('home');
   const [userType, setUserType] = useState<'Visitor' | 'Registered User' | 'Artisan' | 'Admin'>('Visitor');
   const [dataLoaded, setDataLoaded] = useState(false);
 
@@ -133,6 +134,10 @@ export default function App() {
             initialCity={searchParams.city}
             initialSpecialty={searchParams.specialty}
             onSelectArtisan={handleSelectArtisan}
+            onRequireRegistration={() => {
+              setActivePage('choix');
+              window.scrollTo({ top: 0, behavior: 'smooth' });
+            }}
           />
         )}
         {activePage === 'gps' && (
@@ -144,10 +149,23 @@ export default function App() {
             userType={userType}
             setUserType={setUserType}
             onBackToSearch={handleBackToSearch}
+            onRequireRegistration={() => {
+              setActivePage('choix');
+              window.scrollTo({ top: 0, behavior: 'smooth' });
+            }}
           />
         )}
         {activePage === 'login' && (
-          <Login onLogin={handleLoginSuccess} />
+          <Login 
+            onLogin={handleLoginSuccess} 
+            onForgotPassword={() => { setActivePage('forgot_password'); window.scrollTo({ top: 0, behavior: 'smooth' }); }} 
+          />
+        )}
+        {activePage === 'forgot_password' && (
+          <ForgotPassword 
+            onBack={() => { setActivePage('login'); window.scrollTo({ top: 0, behavior: 'smooth' }); }}
+            onResetSuccess={() => { setActivePage('login'); window.scrollTo({ top: 0, behavior: 'smooth' }); }}
+          />
         )}
         {activePage === 'choix' && (
           <Choix onNavigate={setActivePage} />
@@ -179,7 +197,7 @@ export default function App() {
       </div>
 
       {/* FOOTER */}
-      {activePage !== 'login' && activePage !== 'choix' && activePage !== 'inscription_artisan' && activePage !== 'inscription_client' && activePage !== 'mon_profil' && activePage !== 'change_password' && (
+      {activePage !== 'login' && activePage !== 'forgot_password' && activePage !== 'choix' && activePage !== 'inscription_artisan' && activePage !== 'inscription_client' && activePage !== 'mon_profil' && activePage !== 'change_password' && (
         <Footer
           setActivePage={(page) => {
             setActivePage(page as any);

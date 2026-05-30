@@ -100,6 +100,38 @@ export const api = {
     return res.json();
   },
 
+  async forgotPassword(method: 'email' | 'phone', value: string) {
+    const res = await fetch(`${API_BASE}/forgot-password`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Accept': 'application/json'
+      },
+      body: JSON.stringify({ method, value }),
+    });
+    const data = await res.json();
+    if (!res.ok) {
+      throw new Error(data.message || 'Erreur lors de la demande de réinitialisation');
+    }
+    return data;
+  },
+
+  async resetPassword(data: { method: 'email' | 'phone', value: string, code: string, password: string, password_confirmation: string }) {
+    const res = await fetch(`${API_BASE}/reset-password`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Accept': 'application/json'
+      },
+      body: JSON.stringify(data),
+    });
+    const result = await res.json();
+    if (!res.ok) {
+      throw new Error(result.message || 'Erreur lors de la réinitialisation du mot de passe');
+    }
+    return result;
+  },
+
   async createClientRequest(artisanId: string, requestedDate: string) {
     const token = localStorage.getItem('auth_token');
     // Extract numeric ID from formatted artisan ID (e.g. "artisan-5" → 5)

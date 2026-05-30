@@ -64,10 +64,21 @@ export function ProfilClient({ onNavigateToInscription = () => {}, onNavigateToA
       if (avatarFile) fd.append("avatar", avatarFile);
       const res = await api.updateClientProfile(fd);
       setUser(res.user);
+      
+      // Update localStorage so other components know about the change immediately
+      const storedUser = localStorage.getItem('auth_user');
+      if (storedUser) {
+        const u = JSON.parse(storedUser);
+        localStorage.setItem('auth_user', JSON.stringify({ ...u, ...res.user }));
+      }
+      
       setEditing(false);
       setAvatarFile(null);
       setAvatarPreview(null);
       alert("Profil mis à jour avec succès !");
+      
+      // Notify Navbar to update its avatar
+      window.dispatchEvent(new Event('profileUpdated'));
     } catch (err: any) {
       alert(err.message || "Erreur lors de la mise à jour du profil");
     } finally {
@@ -352,8 +363,12 @@ export function ProfilClient({ onNavigateToInscription = () => {}, onNavigateToA
                 {requests.map((req: any) => (
                   <article key={req.id} className="glass-card hover-lift" style={{ padding: 24, borderRadius: 16, display: "flex", flexWrap: "wrap", justifyContent: "space-between", alignItems: "center", gap: 16 }}>
                     <div style={{ display: "flex", alignItems: "center", gap: 16, flex: 1, minWidth: 250 }}>
-                      <div style={{ width: 52, height: 52, borderRadius: 12, background: "#745b19", display: "flex", alignItems: "center", justifyContent: "center", color: "white", fontSize: 24, flexShrink: 0 }}>
-                        🔧
+                      <div style={{ width: 52, height: 52, borderRadius: 12, background: "#e8d9b4", display: "flex", alignItems: "center", justifyContent: "center", color: "#745b19", fontSize: 24, flexShrink: 0, overflow: "hidden" }}>
+                        {req.artisan?.avatar ? (
+                          <img src={req.artisan.avatar} alt={req.artisan.name} style={{ width: "100%", height: "100%", objectFit: "cover" }} />
+                        ) : (
+                          <span>{req.artisan?.name?.charAt(0).toUpperCase() || "A"}</span>
+                        )}
                       </div>
                       <div>
                         <h4 style={{ fontFamily: "'EB Garamond', serif", fontSize: 20, fontWeight: 600, color: "#09152e", marginBottom: 4 }}>

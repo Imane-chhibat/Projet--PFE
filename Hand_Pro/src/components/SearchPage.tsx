@@ -19,12 +19,14 @@ interface SearchPageProps {
   initialCity?: string;
   initialSpecialty?: string;
   onSelectArtisan: (id: string) => void;
+  onRequireRegistration?: () => void;
 }
 
 export const SearchPage = ({
   initialCity = '',
   initialSpecialty = '',
-  onSelectArtisan
+  onSelectArtisan,
+  onRequireRegistration
 }: SearchPageProps) => {
   // Filters state
   const [selectedCity, setSelectedCity] = useState<string>(initialCity);
@@ -71,6 +73,18 @@ export const SearchPage = ({
         setCities(citiesData);
         setCategories(categoriesData);
         setArtisans(artisansData);
+
+        const token = localStorage.getItem('auth_token');
+        if (token) {
+          try {
+            const favRes = await api.getClientFavorites();
+            if (favRes.favorites) {
+              setFavorites(favRes.favorites.map((f: any) => `artisan-${f.artisan.id}`));
+            }
+          } catch (e) {
+            console.error("Error loading favorites", e);
+          }
+        }
       } catch (error) {
         console.error("Error fetching search page data:", error);
       } finally {
@@ -135,11 +149,23 @@ export const SearchPage = ({
     setCurrentPage(1);
   };
 
-  const toggleFavorite = (id: string) => {
-    if (favorites.includes(id)) {
-      setFavorites(favorites.filter(f => f !== id));
-    } else {
-      setFavorites([...favorites, id]);
+  const toggleFavorite = async (id: string) => {
+    const token = localStorage.getItem('auth_token');
+    if (!token) {
+      if (onRequireRegistration) onRequireRegistration();
+      return;
+    }
+
+    try {
+      if (favorites.includes(id)) {
+        await api.removeFavorite(id);
+        setFavorites(favorites.filter(f => f !== id));
+      } else {
+        await api.addFavorite(id);
+        setFavorites([...favorites, id]);
+      }
+    } catch (err: any) {
+      alert(err.message || "Erreur lors de la mise à jour des favoris");
     }
   };
 

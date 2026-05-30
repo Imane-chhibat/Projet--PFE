@@ -177,6 +177,130 @@ class AuthController extends Controller
     }
 
     /**
+     * POST /api/forgot-password
+     */
+    public function forgotPassword(Request $request): JsonResponse
+    {
+        $request->validate([
+            'method' => 'required|in:email,phone',
+            'value'  => 'required|string',
+        ]);
+
+        $field = $request->method;
+        $value = $request->value;
+
+        $user = User::where($field, $value)->first();
+
+        if (!$user) {
+            return response()->json([
+                'message' => 'Aucun compte trouvé avec ces informations.'
+            ], 404);
+        }
+
+        // Generate a 6‑digit OTP
+        $otp = random_int(100000, 999999);
+
+        // Store hashed OTP (expire after 10 minutes)
+        \Illuminate\Support\Facades\DB::table('password_reset_tokens')->updateOrInsert(
+            ['email' => $value],
+            ['token' => Hash::make($otp), 'created_at' => now()]
+        );
+
+        // Send OTP via email (you can replace with your preferred mail view)
+        \Illuminate\Support\Facades\Mail::to($value)->send(new \App\Mail\OtpMail($otp));
+
+        // Return a generic success response (do not expose OTP in production)
+        return response()->json([
+            'message' => 'Code de vérification envoyé avec succès',
+            // 'simulated_code' => $otp // uncomment for local debugging
+        ]);
+
+    }
+
+    /**
+     * POST /api/reset-password
+     */
+    public function resetPassword(Request $request): JsonResponse
+    {
+        $request->validate([
+            'method'   => 'required|in:email,phone',
+            'value'    => 'required|string',
+            'code'     => 'required|string',
+            'password' => 'required|string|min:6|confirmed',
+        ]);
+
+        $field = $request->method;
+        $value = $request->value;
+        $code  = $request->code;
+        $newPassword = $request->password;
+
+        // Retrieve the stored OTP record
+        $record = \Illuminate\Support\Facades\DB::table('password_reset_tokens')
+            ->where('email', $value)
+            ->first();
+
+        if (!$record) {
+            return response()->json(['message' => 'Le code est invalide ou a expiré.'], 400);
+        }
+
+        // Verify OTP and expiration (10 minutes)
+        if (!\Illuminate\Support\Facades\Hash::check($code, $record->token) ||
+            now()->diffInMinutes($record->created_at) > 10) {
+            return response()->json(['message' => 'Le code est invalide ou a expiré.'], 400);
+        }
+
+        // Find the user and update password
+        $user = User::where($field, $value)->first();
+
+        if (!$user) {
+            return response()->json(['message' => 'Utilisateur non trouvé.'], 404);
+        }
+
+        $user->password = \Illuminate\Support\Facades\Hash::make($newPassword);
+        $user->save();
+
+        // Remove used token
+        \Illuminate\Support\Facades\DB::table('password_reset_tokens')
+            ->where('email', $value)
+            ->delete();
+
+        return response()->json(['message' => 'Mot de passe réinitialisé avec succès.']);
+    }
+
+    /**
+     * POST /api/verify-otp
+     */
+    public function verifyOtp(Request $request): JsonResponse
+    {
+        $request->validate([
+            'method' => 'required|in:email,phone',
+            'value'  => 'required|string',
+            'code'   => 'required|string',
+        ]);
+
+        $field = $request->method;
+        $value = $request->value;
+        $code  = $request->code;
+
+        $record = \Illuminate\Support\Facades\DB::table('password_reset_tokens')
+            ->where('email', $value)
+            ->first();
+
+        if (!$record) {
+            return response()->json(['message' => 'Le code est invalide ou a expiré.'], 400);
+        }
+
+        // Verify OTP (10‑minute validity)
+        if (!Hash::check($code, $record->token) || now()->diffInMinutes($record->created_at) > 10) {
+            return response()->json(['message' => 'Le code est invalide ou a expiré.'], 400);
+        }
+
+        return response()->json(['message' => 'Code vérifié avec succès.']);
+    }
+
+
+
+    /**
      * GET /api/debug/admin
      * Debug endpoint to check admin user
      */
