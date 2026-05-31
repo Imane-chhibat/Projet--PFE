@@ -12,7 +12,7 @@ export function ProfilClient({ onNavigateToInscription = () => {}, onNavigateToA
   const [favorites, setFavorites] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [editing, setEditing] = useState(false);
-  const [editForm, setEditForm] = useState({ name: "", phone: "", city: "" });
+  const [editForm, setEditForm] = useState({ name: "", phone: "", city: "", email: "" });
   const [avatarFile, setAvatarFile] = useState<File | null>(null);
   const [avatarPreview, setAvatarPreview] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
@@ -43,6 +43,7 @@ export function ProfilClient({ onNavigateToInscription = () => {}, onNavigateToA
         name: profileRes.user?.name || "",
         phone: profileRes.user?.phone || "",
         city: profileRes.user?.city || "",
+        email: profileRes.user?.email || "",
       });
       setRequests(reqRes.requests || []);
       setFavorites(favRes.favorites || []);
@@ -59,6 +60,7 @@ export function ProfilClient({ onNavigateToInscription = () => {}, onNavigateToA
     try {
       const fd = new FormData();
       fd.append("name", editForm.name);
+      fd.append("email", editForm.email);
       fd.append("phone", editForm.phone);
       fd.append("city", editForm.city);
       if (avatarFile) fd.append("avatar", avatarFile);
@@ -224,6 +226,7 @@ export function ProfilClient({ onNavigateToInscription = () => {}, onNavigateToA
               {editing ? (
                 <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
                   <input value={editForm.name} onChange={(e) => setEditForm({ ...editForm, name: e.target.value })} placeholder="Nom complet" style={{ fontFamily: "'EB Garamond', serif", fontSize: 32, fontWeight: 600, color: "#09152e", background: "white", border: "2px solid #e8d9b4", borderRadius: 12, padding: "8px 16px", outline: "none" }} />
+                  <input value={editForm.email} onChange={(e) => setEditForm({ ...editForm, email: e.target.value })} placeholder="Email" type="email" style={{ fontSize: 16, color: "#45464d", background: "white", border: "2px solid #e8d9b4", borderRadius: 12, padding: "8px 16px", outline: "none" }} />
                   <input value={editForm.phone} onChange={(e) => setEditForm({ ...editForm, phone: e.target.value })} placeholder="Téléphone" style={{ fontSize: 16, color: "#45464d", background: "white", border: "2px solid #e8d9b4", borderRadius: 12, padding: "8px 16px", outline: "none" }} />
                   <select value={editForm.city} onChange={(e) => setEditForm({ ...editForm, city: e.target.value })} style={{ fontSize: 16, color: "#45464d", background: "white", border: "2px solid #e8d9b4", borderRadius: 12, padding: "8px 16px", outline: "none" }}>
                     <option value="">Sélectionnez votre ville</option>

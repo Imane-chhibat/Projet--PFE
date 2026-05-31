@@ -125,7 +125,19 @@ class ArtisanController extends Controller
             ]);
         }
 
-        return response()->json($this->formatProfile($profile));
+        // Get busy dates from accepted appointments
+        $busyDates = \App\Models\ClientRequest::where('artisan_id', $user->id)
+            ->where('status', 'accepted')
+            ->pluck('requested_date')
+            ->map(function ($date) {
+                return date('Y-m-d', strtotime($date));
+            })
+            ->toArray();
+
+        $formattedProfile = $this->formatProfile($profile);
+        $formattedProfile['busyDates'] = $busyDates;
+
+        return response()->json($formattedProfile);
     }
 
     /**

@@ -16,6 +16,7 @@ import {
   AlertCircle
 } from 'lucide-react';
 import { api } from '../utils/api';
+import DynamicCalendar from './DynamicCalendar';
 
 interface ProfileData {
   id: string; 
@@ -37,6 +38,9 @@ interface ProfileData {
   reviews: any[];
   busyUntil?: string;
   busyDays?: number[];
+  busyDates?: string[];
+  lat?: number;
+  lng?: number;
 }
 
 export default function MonProfilArtisan({ onBack }: { onBack?: () => void }) {
@@ -1034,80 +1038,30 @@ export default function MonProfilArtisan({ onBack }: { onBack?: () => void }) {
 
             {/* ONGLET : CALENDRIER */}
             {activeTab === 'calendar' && (
-              <div className="bg-white rounded-xl p-6 shadow-sm border border-[#CDB58E]/20 space-y-4 animate-fadeIn">
-                <div className="flex items-center justify-between border-b border-[#F5EDE0] pb-3">
+              <div className="space-y-4 animate-fadeIn">
+                <div className="flex items-center justify-between">
                   <div>
                     <h3 className="font-display font-bold text-base text-[#2A1B15]">
-                      Disponibilités du Mois
+                      Disponibilités
                     </h3>
                     <p className="text-xs text-[#8E887F]">
                       {editing ? "Cliquez sur les jours pour les marquer comme occupés." : "Visualisez vos jours de disponibilité."}
                     </p>
                   </div>
-
-                  <div className="flex items-center gap-2 text-[10px]">
-                    <span className="flex items-center gap-1">
-                      <span className="w-2.5 h-2.5 rounded bg-[#F5EDE0] border border-[#CDB58E]" /> Libre
-                    </span>
-                    <span className="flex items-center gap-1">
-                      <span className="w-2.5 h-2.5 rounded bg-gray-100 border border-gray-300 line-through" /> Occupé
-                    </span>
-                  </div>
                 </div>
 
-                {/* Vue mensuelle simulée en grille */}
-                <div className="grid grid-cols-7 gap-1 text-center text-xs font-medium">
-                  {['Lun', 'Mar', 'Mer', 'Jeu', 'Ven', 'Sam', 'Dim'].map(d => (
-                    <div key={d} className="py-1 text-[#CDB58E] font-badge uppercase">{d}</div>
-                  ))}
-
-                  {/* Empty offsets */}
-                  <div className="p-2 text-gray-300 bg-gray-50 rounded">25</div>
-                  <div className="p-2 text-gray-300 bg-gray-50 rounded">26</div>
-                  <div className="p-2 text-gray-300 bg-gray-50 rounded">27</div>
-                  <div className="p-2 text-gray-300 bg-gray-50 rounded">28</div>
-                  <div className="p-2 text-gray-300 bg-gray-50 rounded">29</div>
-                  <div className="p-2 text-gray-300 bg-gray-50 rounded">30</div>
-
-                  {/* Real days */}
-                  {[...Array(30)].map((_, i) => {
-                    const day = i + 1;
-                    
-                    // Extract days from actual requested appointments
-                    const appointmentDays = profile?.busyDates
-                      ? profile.busyDates.map((dateStr: string) => parseInt(dateStr.split('-')[2], 10))
-                      : [];
-                    const isAppointmentDay = appointmentDays.includes(day);
-                    
-                    // A day is busy if it's an appointment day, OR if it's manually marked as busy
-                    const isBusy = isAppointmentDay || (editing ? form.busyDays.includes(day) : (profile?.busyDays?.includes(day) || false));
-
-                    const toggleDay = () => {
-                      if (!editing || isAppointmentDay) return;
-                      const newBusyDays = form.busyDays.includes(day)
-                        ? form.busyDays.filter(d => d !== day)
-                        : [...form.busyDays, day];
-                      setForm({ ...form, busyDays: newBusyDays });
-                    };
-
-                    return (
-                      <button
-                        key={day}
-                        onClick={toggleDay}
-                        disabled={!editing || isAppointmentDay}
-                        className={`p-2 sm:p-3 rounded-lg border transition-all text-center flex flex-col items-center justify-center ${
-                          isBusy 
-                            ? 'bg-gray-100 text-gray-400 border-gray-200 line-through opacity-60' 
-                            : 'bg-[#F5EDE0]/40 text-[#2A1B15] border-[#CDB58E]/40 font-bold shadow-xs'
-                        } ${editing ? 'cursor-pointer hover:bg-[#CDB58E] hover:text-[#2A1B15]' : ''}`}
-                        title={isBusy ? 'Occupé' : 'Libre'}
-                      >
-                        <span className="text-sm block">{day}</span>
-                        {!isBusy && <span className="text-[8px] text-[#603A2A] block font-sans">Dispo</span>}
-                      </button>
-                    );
-                  })}
-                </div>
+                <DynamicCalendar
+                  busyDates={Array.isArray(profile?.busyDates) ? profile.busyDates : []}
+                  editable={editing}
+                  selectedDates={form.busyDays.map(day => new Date(new Date().getFullYear(), new Date().getMonth(), day))}
+                  onDateClick={(date) => {
+                    const day = date.getDate();
+                    const newBusyDays = form.busyDays.includes(day)
+                      ? form.busyDays.filter(d => d !== day)
+                      : [...form.busyDays, day];
+                    setForm({ ...form, busyDays: newBusyDays });
+                  }}
+                />
               </div>
             )}
 

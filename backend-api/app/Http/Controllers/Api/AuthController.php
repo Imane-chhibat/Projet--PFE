@@ -206,13 +206,65 @@ class AuthController extends Controller
             ['token' => Hash::make($otp), 'created_at' => now()]
         );
 
-        // Send OTP via email (you can replace with your preferred mail view)
-        \Illuminate\Support\Facades\Mail::to($value)->send(new \App\Mail\OtpMail($otp));
+        // Send OTP via Brevo API for email
+        if ($field === 'email') {
+            try {
+                $config = \Brevo\Client\Configuration::getDefaultConfiguration()
+                    ->setApiKey('api-key', env('BREVO_API_KEY'));
+
+                $apiInstance = new \Brevo\Client\Api\TransactionalEmailsApi(
+                    new \GuzzleHttp\Client(),
+                    $config
+                );
+
+                $sendSmtpEmail = new \Brevo\Client\Model\SendSmtpEmail();
+                $sendSmtpEmail->setSender([
+                    'name' => 'Hand_Pro',
+                    'email' => env('MAIL_FROM_ADDRESS', 'noreply@handpro.ma')
+                ]);
+                $sendSmtpEmail->setTo([['email' => $value, 'name' => $user->name]]);
+                $sendSmtpEmail->setSubject('Code de vérification Hand_Pro');
+                $sendSmtpEmail->setHtmlContent("
+                    <div style='font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;'>
+                        <h2 style='color: #603A2A;'>Code de vérification Hand_Pro</h2>
+                        <p>Bonjour {$user->name},</p>
+                        <p>Voici votre code de vérification pour réinitialiser votre mot de passe :</p>
+                        <div style='background-color: #F5EDE0; padding: 20px; text-align: center; border-radius: 10px; margin: 20px 0;'>
+                            <h1 style='color: #603A2A; font-size: 48px; margin: 0;'>{$otp}</h1>
+                        </div>
+                        <p>Ce code expire dans 10 minutes.</p>
+                        <p>Si vous n'avez pas demandé cette réinitialisation, ignorez cet email.</p>
+                    </div>
+                ");
+
+                $result = $apiInstance->sendTransacEmail($sendSmtpEmail);
+                \Illuminate\Support\Facades\Log::info('Email sent via Brevo', ['email' => $value, 'messageId' => $result->getMessageId()]);
+            } catch (\Exception $e) {
+                \Illuminate\Support\Facades\Log::error('Failed to send email via Brevo', ['error' => $e->getMessage()]);
+                // Fallback to Laravel Mail if Brevo fails
+                \Illuminate\Support\Facades\Mail::to($value)->send(new \App\Mail\OtpMail($otp));
+            }
+        } else {
+            // For phone, use Twilio (already configured)
+            try {
+                $twilio = new \Twilio\Rest\Client(env('TWILIO_ACCOUNT_SID'), env('TWILIO_AUTH_TOKEN'));
+                $twilio->messages->create(
+                    $value,
+                    [
+                        'from' => env('TWILIO_WHATSAPP_FROM'),
+                        'body' => "Votre code de vérification Hand_Pro est : {$otp}. Ce code expire dans 10 minutes."
+                    ]
+                );
+                \Illuminate\Support\Facades\Log::info('SMS sent via Twilio', ['phone' => $value]);
+            } catch (\Exception $e) {
+                \Illuminate\Support\Facades\Log::error('Failed to send SMS via Twilio', ['error' => $e->getMessage()]);
+            }
+        }
 
         // Return a generic success response (do not expose OTP in production)
         return response()->json([
             'message' => 'Code de vérification envoyé avec succès',
-            // 'simulated_code' => $otp // uncomment for local debugging
+            'simulated_code' => $otp // Return for testing purposes
         ]);
 
     }

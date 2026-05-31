@@ -41,6 +41,7 @@ class ClientProfileController extends Controller
 
         $validated = $request->validate([
             'name' => 'nullable|string|max:255',
+            'email' => 'nullable|email|unique:users,email,' . $user->id,
             'phone' => 'nullable|string|max:20',
             'city' => 'nullable|string|max:100',
             'avatar' => 'nullable|image|max:2048',
@@ -48,6 +49,9 @@ class ClientProfileController extends Controller
 
         if ($request->has('name')) {
             $user->name = $validated['name'];
+        }
+        if ($request->has('email')) {
+            $user->email = $validated['email'];
         }
         if ($request->has('phone')) {
             $user->phone = $validated['phone'];
