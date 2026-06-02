@@ -212,7 +212,7 @@ export const SearchPage = ({
   });
 
   // Pagination logic
-  const itemsPerPage = 4;
+  const itemsPerPage = 6;
   const totalPages = Math.ceil(filteredArtisans.length / itemsPerPage) || 1;
   const paginatedArtisans = filteredArtisans.slice(
     (currentPage - 1) * itemsPerPage, 
@@ -452,137 +452,113 @@ export const SearchPage = ({
                 {viewMode === 'grid' ? (
                   
                   /* VUE GRILLE */
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4">
                     {paginatedArtisans.map((artisan) => {
                       const isFav = favorites.includes(artisan.id);
                       return (
                         <div
                           key={artisan.id}
-                          className="bg-white rounded-xl overflow-hidden shadow-sm hover:shadow-md transition-all duration-300 border border-[#CDB58E]/30 hover:border-[#CDB58E] hover:-translate-y-1 group flex flex-col justify-between"
+                          className="bg-white rounded-lg overflow-hidden shadow-sm hover:shadow-md transition-all duration-300 border border-[#CDB58E]/30 hover:border-[#CDB58E] hover:-translate-y-1 group flex flex-col justify-between"
                         >
                           <div>
-                            {/* Photo artisan (rectangle haut avec overlay gradient bas) */}
-                            <div className="relative h-48 w-full overflow-hidden bg-[#2A1B15]">
-                              <img 
-                                src={artisan.avatar} 
-                                alt={artisan.name}
-                                className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500 object-top" 
-                              />
-                              <div className="absolute inset-0 bg-gradient-to-t from-[#2A1B15] via-transparent to-transparent opacity-80" />
-                              
-                              {/* Badge Certifié coin haut-droit */}
-                              {artisan.isCertified && (
-                                <div className="absolute top-3 right-3">
-                                  <CertifiedBadge compact />
-                                </div>
-                              )}
-
-                              {/* Distance overlay en bas gauche */}
-                              <div className="absolute bottom-3 left-3 flex items-center gap-1 text-white text-[11px] bg-[#111B2F]/80 backdrop-blur-sm px-2 py-0.5 rounded">
-                                <MapPin size={10} className="text-[#CDB58E]" />
-                                <span>à {artisan.distanceKm} km</span>
-                              </div>
-
-                              {/* Disponibilité overlay bas droite */}
-                              <div className="absolute bottom-3 right-3 text-[10px]">
-                                <span className={`px-2 py-0.5 rounded font-medium ${
-                                  artisan.availability === 'available' 
-                                    ? 'bg-emerald-950 text-emerald-300 border border-emerald-800' 
-                                    : 'bg-amber-950 text-amber-300 border border-amber-800'
+                            {/* Bannière + Avatar circulaire */}
+                            <div className="relative bg-gradient-to-r from-[#2A1B15] to-[#603A2A] h-16">
+                              <div className="absolute inset-0 zellige-pattern opacity-20" />
+                              {/* Disponibilité overlay */}
+                              <div className="absolute top-2 right-2 text-[9px] z-10">
+                                <span className={`px-1.5 py-0.5 rounded font-medium shadow-sm ${
+                                  artisan.availability !== 'busy' 
+                                    ? 'bg-emerald-950/90 text-emerald-300 border border-emerald-800' 
+                                    : 'bg-amber-950/90 text-amber-300 border border-amber-800'
                                 }`}>
-                                  {artisan.availability === 'available' ? '● Immédiat' : `Occupé`}
+                                  {artisan.availability !== 'busy' ? '● Dispo' : `Occupé`}
                                 </span>
+                              </div>
+                              {/* Favori coin haut-gauche */}
+                              <button
+                                onClick={() => toggleFavorite(artisan.id)}
+                                className={`absolute top-2 left-2 z-10 p-1 rounded-full border transition-colors ${
+                                  isFav 
+                                    ? 'bg-rose-50 border-rose-200 text-rose-600' 
+                                    : 'bg-white/20 backdrop-blur-sm border-white/30 text-white hover:text-rose-400'
+                                }`}
+                                title={isFav ? 'Retirer des favoris' : 'Ajouter aux favoris'}
+                              >
+                                <Heart size={12} className={isFav ? 'fill-rose-600' : ''} />
+                              </button>
+                            </div>
+
+                            {/* Avatar circulaire chevauchant */}
+                            <div className="flex flex-col items-center -mt-10 relative z-10">
+                              <div className="relative">
+                                <div className="w-20 h-20 rounded-full border-[3px] border-white overflow-hidden bg-white shadow-lg group-hover:scale-105 transition-transform duration-500">
+                                  {artisan.avatar ? (
+                                    <img 
+                                      src={artisan.avatar} 
+                                      alt={artisan.name}
+                                      className="w-full h-full object-cover object-top" 
+                                    />
+                                  ) : (
+                                    <div className="w-full h-full flex items-center justify-center bg-[#F5EDE0] text-[#603A2A] font-display font-bold text-3xl">
+                                      {artisan.name?.charAt(0).toUpperCase() || "A"}
+                                    </div>
+                                  )}
+                                </div>
+                                {/* Icône Certifié en bas à droite de l'avatar */}
+                                {artisan.isCertified && (
+                                  <div className="absolute bottom-0 right-0 w-6 h-6 rounded-full bg-[#CDB58E] border-2 border-white flex items-center justify-center shadow-md" title="Certifié OFPPT">
+                                    <Award size={12} className="text-[#2A1B15]" />
+                                  </div>
+                                )}
                               </div>
                             </div>
 
                             {/* Contenu carte */}
-                            <div className="p-4 space-y-3">
+                            <div className="px-3 pb-2 pt-2 space-y-2 text-center">
                               
-                              <div className="flex items-start justify-between gap-2">
-                                <div>
-                                  {/* Nom */}
-                                  <h3 className="font-display font-bold text-lg text-[#2A1B15] leading-tight">
-                                    {artisan.name}
-                                  </h3>
-                                  {/* Spécialité */}
-                                  <p className="text-xs font-sans text-[#8E887F] mt-0.5">
-                                    {artisan.specialty}
-                                  </p>
-                                </div>
-                                
-                                {/* Bouton Favoris (cœur contour) */}
-                                <button
-                                  onClick={() => toggleFavorite(artisan.id)}
-                                  className={`p-1.5 rounded-full border transition-colors shrink-0 mt-0.5 ${
-                                    isFav 
-                                      ? 'bg-rose-50 border-rose-200 text-rose-600 fill-rose-600' 
-                                      : 'border-[#8E887F]/30 text-[#8E887F] hover:text-rose-600 hover:border-rose-200'
-                                  }`}
-                                  title={isFav ? 'Retirer des favoris' : 'Ajouter aux favoris'}
-                                >
-                                  <Heart size={16} className={isFav ? 'fill-rose-600' : ''} />
-                                </button>
-                              </div>
+                              {/* Nom */}
+                              <h3 className="font-display font-bold text-sm text-[#2A1B15] leading-tight">
+                                {artisan.name}
+                              </h3>
+                              {/* Spécialité */}
+                              <p className="text-[11px] font-sans text-[#8E887F]">
+                                {artisan.specialty}
+                              </p>
 
                               {/* Localisation et avis */}
-                              <div className="flex items-center justify-between text-xs pt-1">
+                              <div className="flex items-center justify-center gap-3 text-[11px]">
                                 <span className="flex items-center gap-1 font-medium text-[#603A2A]">
-                                  <MapPin size={13} />
+                                  <MapPin size={11} />
                                   {artisan.city}
                                 </span>
-
-                                <div className="flex items-center gap-1">
-                                  <Star size={13} className="fill-[#CDB58E] text-[#CDB58E]" />
+                                <span className="text-[#CDB58E]">•</span>
+                                <div className="flex items-center gap-0.5">
+                                  <Star size={11} className="fill-[#CDB58E] text-[#CDB58E]" />
                                   <span className="font-bold text-[#2A1B15]">{artisan.rating}</span>
                                   <span className="text-[10px] text-[#8E887F]">({artisan.reviewCount})</span>
                                 </div>
                               </div>
 
-                              {/* Années d'expérience badge discret */}
-                              <div className="pt-2 border-t border-[#F5EDE0] flex items-center justify-between">
-                                <span className="text-[11px] text-[#8E887F] italic">
-                                  {artisan.experienceYears} années de métier
+                              {/* Expérience + devis */}
+                              <div className="pt-1.5 border-t border-[#F5EDE0] flex items-center justify-between text-[10px]">
+                                <span className="text-[#8E887F] italic">
+                                  {artisan.experienceYears} ans de métier
                                 </span>
-                                <span className="text-[10px] bg-[#F5EDE0] text-[#603A2A] px-2 py-0.5 rounded font-badge uppercase tracking-wider">
+                                <span className="bg-[#F5EDE0] text-[#603A2A] px-1.5 py-0.5 rounded font-badge uppercase tracking-wider text-[9px]">
                                   Devis Gratuit
                                 </span>
                               </div>
 
-                              {/* Jours disponibles */}
-                              {artisan.busyDays && artisan.busyDays.length > 0 && (
-                                <div className="pt-2 border-t border-[#F5EDE0]">
-                                  <p className="text-[10px] text-[#8E887F] mb-1">Jours disponibles ce mois:</p>
-                                  <div className="flex flex-wrap gap-1">
-                                    {[...Array(30)].map((_, i) => {
-                                      const day = i + 1;
-                                      const isBusy = artisan.busyDays.includes(day);
-                                      return (
-                                        <span
-                                          key={day}
-                                          className={`w-5 h-5 flex items-center justify-center text-[9px] rounded ${
-                                            isBusy
-                                              ? 'bg-gray-200 text-gray-400 line-through'
-                                              : 'bg-emerald-100 text-emerald-700 font-bold'
-                                          }`}
-                                        >
-                                          {day}
-                                        </span>
-                                      );
-                                    })}
-                                  </div>
-                                </div>
-                              )}
-
                             </div>
                           </div>
 
-                          {/* Bouton "Voir profil" plein */}
-                          <div className="p-4 pt-0">
+                          {/* Bouton "Voir profil" */}
+                          <div className="px-3 pb-3 pt-0">
                             <button
                               onClick={() => onSelectArtisan(artisan.id)}
-                              className="w-full py-2 bg-[#603A2A] text-white hover:bg-[#603A2A]/90 transition-all text-xs font-medium rounded-lg text-center shadow-sm"
+                              className="w-full py-1.5 bg-[#603A2A] text-white hover:bg-[#603A2A]/90 transition-all text-[11px] font-medium rounded-lg text-center shadow-sm"
                             >
-                              Voir le profil & réalisations
+                              Voir le profil
                             </button>
                           </div>
 
@@ -605,7 +581,13 @@ export const SearchPage = ({
                           {/* Photo ronde et badge */}
                           <div className="flex items-center gap-4 w-full sm:w-auto shrink-0">
                             <div className="relative w-16 h-16 rounded-full overflow-hidden shrink-0 border-2 border-[#CDB58E]">
-                              <img src={artisan.avatar} alt={artisan.name} className="w-full h-full object-cover object-top" />
+                              {artisan.avatar ? (
+                                <img src={artisan.avatar} alt={artisan.name} className="w-full h-full object-cover object-top" />
+                              ) : (
+                                <div className="w-full h-full flex items-center justify-center bg-[#F5EDE0] text-[#603A2A] font-display font-bold text-2xl">
+                                  {artisan.name?.charAt(0).toUpperCase() || "A"}
+                                </div>
+                              )}
                             </div>
                             <div>
                               <div className="flex items-center gap-2 flex-wrap">
@@ -619,10 +601,7 @@ export const SearchPage = ({
                               </p>
                               <div className="flex items-center gap-2 mt-1 text-[11px]">
                                 <span className="text-emerald-700 font-medium bg-emerald-50 px-1.5 py-0.5 rounded">
-                                  {artisan.availability === 'available' ? 'Disponible' : 'Occupé'}
-                                </span>
-                                <span className="text-[#8E887F]">
-                                  📍 {artisan.distanceKm} km
+                                  {artisan.availability !== 'busy' ? 'Disponible' : 'Occupé'}
                                 </span>
                               </div>
                             </div>

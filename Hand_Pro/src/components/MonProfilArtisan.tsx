@@ -197,6 +197,15 @@ export default function MonProfilArtisan({ onBack }: { onBack?: () => void }) {
         avatar: res.profile.avatar || "",
         busyDays: res.profile.busyDays || []
       });
+
+      // Update localStorage so other components (like Navbar) know about the change immediately
+      const storedUser = localStorage.getItem('auth_user');
+      if (storedUser) {
+        const u = JSON.parse(storedUser);
+        localStorage.setItem('auth_user', JSON.stringify({ ...u, name: res.profile.name, avatar: res.profile.avatar, phone: res.profile.phone, city: res.profile.city }));
+      }
+      window.dispatchEvent(new Event('profileUpdated'));
+
       setEditing(false);
       setAvatarFile(null);
       setCoverFile(null);
@@ -1094,7 +1103,7 @@ export default function MonProfilArtisan({ onBack }: { onBack?: () => void }) {
                     </button>
                   </div>
                 ) : (
-                  profile?.availability === 'available' ? (
+                  profile?.availability !== 'busy' ? (
                     <div className="inline-flex items-center gap-1.5 bg-emerald-50 text-emerald-800 px-3 py-1 rounded-full text-xs font-bold border border-emerald-200">
                       <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
                       <span>Disponible cette semaine</span>

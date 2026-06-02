@@ -2,6 +2,7 @@ import { ShieldCheck, X } from 'lucide-react';
 import { useState, useEffect } from 'react';
 import { api } from '../utils/api';
 import logoHand from '../images/logo_hand.png';
+import { AuthAlertModal } from './AuthAlertModal';
 
 interface NavbarProps {
   activePage: string;
@@ -22,6 +23,7 @@ export const Navbar = ({
   const [userName, setUserName] = useState<string | null>(null);
   const [notifications, setNotifications] = useState<any[]>([]);
   const [showNotifications, setShowNotifications] = useState(false);
+  const [showAuthAlert, setShowAuthAlert] = useState(false);
 
   useEffect(() => {
     const loadProfile = () => {
@@ -92,6 +94,7 @@ export const Navbar = ({
   };
 
   return (
+    <>
     <header className="sticky top-0 z-50 bg-[#2A1B15]/95 backdrop-blur-md border-b border-[#CDB58E]/20 shadow-lg">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex items-center justify-between h-16">
@@ -141,7 +144,13 @@ export const Navbar = ({
             </button>
 
             <button
-              onClick={() => setActivePage('gps')}
+              onClick={() => {
+                if (userType === 'Visitor') {
+                  setShowAuthAlert(true);
+                  return;
+                }
+                setActivePage('gps');
+              }}
               className={`px-3 py-2 rounded-md text-sm font-medium transition-colors relative ${
                 activePage === 'gps' 
                   ? 'text-[#CDB58E] bg-[#603A2A] font-semibold shadow-sm' 
@@ -335,13 +344,23 @@ export const Navbar = ({
             Recherche
           </button>
           <button 
-            onClick={() => setActivePage('gps')}
+            onClick={() => {
+              if (userType === 'Visitor') {
+                setShowAuthAlert(true);
+                return;
+              }
+              setActivePage('gps');
+            }}
             className={`py-1 px-2 rounded ${activePage === 'gps' ? 'text-[#CDB58E] font-bold' : 'text-[#8E887F]'}`}
           >
             GPS
           </button>
           <button 
             onClick={() => {
+              if (userType === 'Visitor') {
+                setShowAuthAlert(true);
+                return;
+              }
               setActivePage('profile');
             }}
             className={`py-1 px-2 rounded ${activePage === 'profile' ? 'text-[#CDB58E] font-bold' : 'text-[#8E887F]'}`}
@@ -415,5 +434,14 @@ export const Navbar = ({
         }
       `}</style>
     </header>
+    <AuthAlertModal 
+      isOpen={showAuthAlert} 
+      onClose={() => setShowAuthAlert(false)} 
+      onLoginClick={() => {
+        if (onOpenLogin) onOpenLogin();
+        else setActivePage('login');
+      }} 
+    />
+    </>
   );
 };

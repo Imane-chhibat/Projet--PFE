@@ -1,15 +1,20 @@
 import { useState, useEffect } from "react";
 import { api } from "../utils/api";
+import { Settings, LogOut, Camera, Star, Heart, Clock, Search, MapPin, Map as MapIcon, Image as ImageIcon, Calendar } from 'lucide-react';
+import logoHand from '../images/logo_hand.png';
 
 interface ProfilClientProps {
   onNavigateToInscription?: () => void;
   onNavigateToArtisanProfile?: (artisanId: string) => void;
+  onNavigateToHome?: () => void;
 }
 
-export function ProfilClient({ onNavigateToInscription = () => {}, onNavigateToArtisanProfile = () => {} }: ProfilClientProps) {
+export function ProfilClient({ onNavigateToInscription = () => {}, onNavigateToArtisanProfile = () => {}, onNavigateToHome = () => {} }: ProfilClientProps) {
   const [user, setUser] = useState<any>(null);
   const [requests, setRequests] = useState<any[]>([]);
   const [favorites, setFavorites] = useState<any[]>([]);
+  const [reviews, setReviews] = useState<any[]>([]);
+  const [comments, setComments] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [editing, setEditing] = useState(false);
   const [editForm, setEditForm] = useState({ name: "", phone: "", city: "", email: "" });
@@ -17,6 +22,9 @@ export function ProfilClient({ onNavigateToInscription = () => {}, onNavigateToA
   const [avatarPreview, setAvatarPreview] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
   const [cities, setCities] = useState<string[]>([]);
+  // Confirm modal state for deletes and cancels
+  const [confirmAction, setConfirmAction] = useState<{ type: 'review' | 'comment' | 'cancel_request'; id: number } | null>(null);
+  const [processing, setProcessing] = useState(false);
 
   const isLoggedIn = !!localStorage.getItem("auth_token");
 
@@ -32,21 +40,36 @@ export function ProfilClient({ onNavigateToInscription = () => {}, onNavigateToA
   const loadData = async () => {
     setLoading(true);
     try {
-      const [profileRes, reqRes, favRes] = await Promise.all([
+      const [profileRes, reqRes, favRes, reviewsRes, commentsRes] = await Promise.allSettled([
         api.getClientProfile(),
         api.getClientRequests(),
         api.getClientFavorites(),
+        api.getClientReviews(),
+        api.getClientComments(),
       ]);
-      console.log("Profile response:", profileRes);
-      setUser(profileRes.user);
+
+      // Profile is mandatory — if it fails, show error
+      if (profileRes.status === 'rejected') {
+        throw new Error(profileRes.reason?.message || 'Profil non trouvé');
+      }
+      const profile = profileRes.value;
+      console.log("Profile response:", profile);
+      setUser(profile.user);
       setEditForm({
-        name: profileRes.user?.name || "",
-        phone: profileRes.user?.phone || "",
-        city: profileRes.user?.city || "",
-        email: profileRes.user?.email || "",
+        name: profile.user?.name || "",
+        phone: profile.user?.phone || "",
+        city: profile.user?.city || "",
+        email: profile.user?.email || "",
       });
-      setRequests(reqRes.requests || []);
-      setFavorites(favRes.favorites || []);
+
+      // Other calls are non-critical — graceful fallback to empty arrays
+      if (reqRes.status === 'fulfilled') setRequests(reqRes.value.requests || []);
+      if (favRes.status === 'fulfilled') setFavorites(favRes.value.favorites || []);
+      if (reviewsRes.status === 'fulfilled') setReviews(reviewsRes.value.reviews || []);
+      else console.warn("Could not load reviews:", reviewsRes.reason);
+      if (commentsRes.status === 'fulfilled') setComments(commentsRes.value.comments || []);
+      else console.warn("Could not load comments:", commentsRes.reason);
+
     } catch (err) {
       console.error("Error loading profile:", err);
       alert("Erreur lors du chargement du profil. Veuillez vous reconnecter.");
@@ -99,6 +122,41 @@ export function ProfilClient({ onNavigateToInscription = () => {}, onNavigateToA
     }
   };
 
+  const handleDeleteReview = async (id: number) => {
+    setConfirmAction({ type: 'review', id });
+  };
+
+  const handleDeleteComment = async (id: number) => {
+    setConfirmAction({ type: 'comment', id });
+  };
+
+  const handleCancelRequest = (id: number) => {
+    setConfirmAction({ type: 'cancel_request', id });
+  };
+
+  const confirmActionHandler = async () => {
+    if (!confirmAction) return;
+    setProcessing(true);
+    try {
+      if (confirmAction.type === 'review') {
+        await api.deleteClientReview(confirmAction.id);
+        setReviews(reviews.filter(r => r.id !== confirmAction.id));
+      } else if (confirmAction.type === 'comment') {
+        await api.deleteClientComment(confirmAction.id);
+        setComments(comments.filter(c => c.id !== confirmAction.id));
+      } else if (confirmAction.type === 'cancel_request') {
+        const res = await api.cancelClientRequest(confirmAction.id);
+        // Update request status locally
+        setRequests(requests.map(req => req.id === confirmAction.id ? { ...req, status: 'cancelled' } : req));
+      }
+    } catch (err: any) {
+      alert(err.message || 'Erreur lors de l\'opération');
+    } finally {
+      setProcessing(false);
+      setConfirmAction(null);
+    }
+  };
+
   const handleAvatarChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
@@ -118,6 +176,12 @@ export function ProfilClient({ onNavigateToInscription = () => {}, onNavigateToA
       return (
         <span style={{ background: "#fee2e2", color: "#991b1b", padding: "4px 14px", borderRadius: 9999, fontSize: 13, fontWeight: 700 }}>
           ✗ Refusé
+        </span>
+      );
+    if (status === "cancelled")
+      return (
+        <span style={{ background: "#f3f4f6", color: "#4b5563", padding: "4px 14px", borderRadius: 9999, fontSize: 13, fontWeight: 700 }}>
+          🚫 Annulé
         </span>
       );
     return (
@@ -357,7 +421,7 @@ export function ProfilClient({ onNavigateToInscription = () => {}, onNavigateToA
 
             {requests.length === 0 ? (
               <div className="glass-card" style={{ padding: 48, borderRadius: 16, textAlign: "center" }}>
-                <div style={{ fontSize: 48, marginBottom: 16 }}>📅</div>
+                <div style={{ marginBottom: 16, display: 'flex', justifyContent: 'center' }}><Calendar size={48} color="#745b19" /></div>
                 <p style={{ fontSize: 16, color: "#45464d", marginBottom: 8 }}>Aucun rendez-vous pour le moment</p>
                 <p style={{ fontSize: 14, color: "#8E887F" }}>Vos demandes de rendez-vous envoyées aux artisans apparaîtront ici.</p>
               </div>
@@ -378,7 +442,7 @@ export function ProfilClient({ onNavigateToInscription = () => {}, onNavigateToA
                           {req.artisan?.name || "Artisan"}
                         </h4>
                         <p style={{ fontSize: 14, color: "#45464d" }}>
-                          📅 Date demandée : <strong>{formatDate(req.requested_date)}</strong>
+                          <Calendar size={14} style={{ display: 'inline-block', verticalAlign: 'middle', marginRight: 4 }} /> Date demandée : <strong>{formatDate(req.requested_date)}</strong>
                         </p>
                         <p style={{ fontSize: 12, color: "#8E887F", marginTop: 2 }}>
                           Envoyée le {formatDate(req.created_at)}
@@ -387,6 +451,26 @@ export function ProfilClient({ onNavigateToInscription = () => {}, onNavigateToA
                     </div>
                     <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
                       {getStatusBadge(req.status)}
+                      {(req.status === 'pending' || req.status === 'accepted') && (
+                        <button
+                          onClick={() => handleCancelRequest(req.id)}
+                          style={{
+                            padding: "6px 12px",
+                            background: "transparent",
+                            color: "#e11d48",
+                            border: "1px solid #e11d48",
+                            borderRadius: 9999,
+                            fontSize: 12,
+                            fontWeight: 600,
+                            cursor: "pointer",
+                            transition: "background 0.2s"
+                          }}
+                          onMouseEnter={(e) => (e.currentTarget.style.background = "rgba(225,29,72,0.05)")}
+                          onMouseLeave={(e) => (e.currentTarget.style.background = "transparent")}
+                        >
+                          Annuler
+                        </button>
+                      )}
                     </div>
                   </article>
                 ))}
@@ -394,8 +478,163 @@ export function ProfilClient({ onNavigateToInscription = () => {}, onNavigateToA
             )}
           </section>
 
+          {/* ── Mes Commentaires ── */}
+          <section>
+            <div style={{ marginBottom: 40 }}>
+              <span style={{ fontFamily: "Manrope, sans-serif", fontSize: 12, fontWeight: 700, color: "#745b19", textTransform: "uppercase", letterSpacing: "0.08em", display: "block", marginBottom: 8 }}>
+                Vos avis et témoignages
+              </span>
+              <h2 style={{ fontFamily: "'EB Garamond', serif", fontSize: 40, fontWeight: 500, color: "#09152e" }}>
+                Mes Commentaires
+              </h2>
+            </div>
+
+            {reviews.length === 0 && comments.length === 0 ? (
+              <div className="glass-card" style={{ padding: 48, borderRadius: 16, textAlign: "center" }}>
+                <div style={{ fontSize: 48, marginBottom: 16 }}>💬</div>
+                <p style={{ fontSize: 16, color: "#45464d", marginBottom: 8 }}>Vous n'avez pas encore laissé de commentaires</p>
+                <p style={{ fontSize: 14, color: "#8E887F" }}>Partagez votre expérience avec les artisans ou sur le site.</p>
+              </div>
+            ) : (
+              <div style={{ display: "flex", flexDirection: "column", gap: 32 }}>
+                
+                {/* Avis sur les Artisans */}
+                {reviews.length > 0 && (
+                  <div>
+                    <h3 style={{ fontFamily: "'EB Garamond', serif", fontSize: 24, fontWeight: 600, color: "#09152e", marginBottom: 16 }}>Avis sur les Artisans</h3>
+                    <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(300px, 1fr))", gap: 20 }}>
+                      {reviews.map((rev: any) => (
+                        <article key={rev.id} className="glass-card" style={{ padding: 24, borderRadius: 16, display: "flex", flexDirection: "column", gap: 12, position: "relative" }}>
+                          <button 
+                            onClick={() => handleDeleteReview(rev.id)}
+                            style={{ position: "absolute", top: 16, right: 16, background: "rgba(225,29,72,0.1)", color: "#e11d48", border: "none", borderRadius: "50%", width: 32, height: 32, display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer", transition: "background 0.2s" }}
+                            title="Supprimer l'avis"
+                          >
+                            <span className="material-symbols-outlined" style={{ fontSize: 18 }}>delete</span>
+                          </button>
+                          
+                          <div
+                            style={{ display: 'flex', alignItems: 'center', gap: 12, cursor: rev.artisan?.id ? 'pointer' : 'default' }}
+                            onClick={() => rev.artisan?.id && onNavigateToArtisanProfile(`artisan-${rev.artisan.id}`)}
+                            title={rev.artisan?.id ? `Voir le profil de ${rev.artisan?.name || "l'artisan"}` : ''}
+                          >
+                            <div style={{ width: 40, height: 40, borderRadius: '50%', background: '#e8d9b4', overflow: 'hidden', flexShrink: 0, border: '2px solid transparent', transition: 'border-color 0.2s' }}
+                              onMouseEnter={e => rev.artisan?.id && ((e.currentTarget as HTMLElement).style.borderColor = '#745b19')}
+                              onMouseLeave={e => ((e.currentTarget as HTMLElement).style.borderColor = 'transparent')}
+                            >
+                              {rev.artisan?.avatar ? (
+                                <img src={rev.artisan.avatar} alt={rev.artisan.name} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                              ) : (
+                                <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#745b19', fontWeight: 'bold' }}>
+                                  {rev.artisan?.name?.charAt(0).toUpperCase() || 'A'}
+                                </div>
+                              )}
+                            </div>
+                            <div>
+                              <div style={{ fontSize: 14, fontWeight: 600, color: '#09152e', textDecoration: rev.artisan?.id ? 'underline' : 'none', textDecorationColor: '#745b19', textDecorationStyle: 'dotted' }}>
+                                {rev.artisan?.name || 'Artisan inconnu'}
+                              </div>
+                              <div style={{ color: '#f59e0b', fontSize: 14 }}>{'★'.repeat(rev.rating)}{'☆'.repeat(5 - rev.rating)}</div>
+                            </div>
+                          </div>
+                          <p style={{ fontSize: 14, color: "#45464d", fontStyle: "italic", lineHeight: 1.5 }}>"{rev.comment}"</p>
+                          <div style={{ fontSize: 12, color: "#8E887F", marginTop: "auto" }}>Le {formatDate(rev.created_at)}</div>
+                        </article>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {/* Témoignages sur le Site */}
+                {comments.length > 0 && (
+                  <div>
+                    <h3 style={{ fontFamily: "'EB Garamond', serif", fontSize: 24, fontWeight: 600, color: "#09152e", marginBottom: 16 }}>Témoignages sur le site</h3>
+                    <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(300px, 1fr))", gap: 20 }}>
+                      {comments.map((comment: any) => (
+                        <article key={comment.id} className="glass-card" style={{ padding: 24, borderRadius: 16, display: "flex", flexDirection: "column", gap: 12, position: "relative" }}>
+                          <button 
+                            onClick={() => handleDeleteComment(comment.id)}
+                            style={{ position: "absolute", top: 16, right: 16, background: "rgba(225,29,72,0.1)", color: "#e11d48", border: "none", borderRadius: "50%", width: 32, height: 32, display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer", transition: "background 0.2s" }}
+                            title="Supprimer le témoignage"
+                          >
+                            <span className="material-symbols-outlined" style={{ fontSize: 18 }}>delete</span>
+                          </button>
+                          
+                          <button
+                            onClick={onNavigateToHome}
+                            style={{ display: "flex", alignItems: "center", gap: 6, background: "none", border: "none", cursor: "pointer", padding: 0, transition: "opacity 0.2s" }}
+                            onMouseEnter={e => (e.currentTarget.style.opacity = '0.75')}
+                            onMouseLeave={e => (e.currentTarget.style.opacity = '1')}
+                            title="Aller à l'accueil HandPro"
+                          >
+                            <img src={logoHand} alt="HandPro Logo" style={{ width: 18, height: 18, objectFit: "contain" }} />
+                            <span style={{ fontSize: 13, fontWeight: 800, color: "#603A2A", letterSpacing: "0.5px" }}>HANDPRO</span>
+                          </button>
+                          <p style={{ fontSize: 14, color: "#45464d", lineHeight: 1.5 }}>{comment.body}</p>
+                          <div style={{ fontSize: 12, color: "#8E887F", marginTop: "auto" }}>Le {formatDate(comment.created_at)}</div>
+                        </article>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+              </div>
+            )}
+          </section>
+
         </main>
       </div>
+
+      {/* ── Confirmation Modal ── */}
+      {confirmAction && (
+        <div style={{
+          position: 'fixed', inset: 0, zIndex: 9999,
+          background: 'rgba(9,21,46,0.55)', backdropFilter: 'blur(4px)',
+          display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20
+        }}>
+          <div style={{
+            background: 'white', borderRadius: 20, padding: '40px 36px', maxWidth: 420, width: '100%',
+            boxShadow: '0 32px 80px rgba(9,21,46,0.2)', textAlign: 'center', animation: 'fadeIn 0.25s ease'
+          }}>
+            <div style={{ width: 64, height: 64, borderRadius: '50%', background: '#fef2f2', margin: '0 auto 20px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+              <span className="material-symbols-outlined" style={{ fontSize: 32, color: '#e11d48' }}>
+                {confirmAction.type === 'cancel_request' ? 'cancel' : 'delete'}
+              </span>
+            </div>
+            <h3 style={{ fontFamily: "'EB Garamond', serif", fontSize: 24, fontWeight: 600, color: '#09152e', marginBottom: 12 }}>
+              {confirmAction.type === 'cancel_request' ? 'Confirmer l\'annulation' : 'Confirmer la suppression'}
+            </h3>
+            <p style={{ fontSize: 14, color: '#45464d', lineHeight: 1.6, marginBottom: 28 }}>
+              {confirmAction.type === 'review' && 'Voulez-vous vraiment supprimer cet avis ? Cette action est irréversible et la note de l\'artisan sera mise à jour.'}
+              {confirmAction.type === 'comment' && 'Voulez-vous vraiment supprimer ce témoignage ? Cette action est irréversible.'}
+              {confirmAction.type === 'cancel_request' && 'Voulez-vous vraiment annuler ce rendez-vous ? Un message sera envoyé à l\'artisan.'}
+            </p>
+            <div style={{ display: 'flex', gap: 12, justifyContent: 'center' }}>
+              <button
+                onClick={() => setConfirmAction(null)}
+                disabled={processing}
+                style={{ padding: '12px 28px', border: '1.5px solid #e8d9b4', background: 'transparent', color: '#45464d', borderRadius: 9999, fontSize: 14, fontWeight: 600, cursor: 'pointer', transition: 'all 0.2s' }}
+              >
+                Non, revenir
+              </button>
+              <button
+                onClick={confirmActionHandler}
+                disabled={processing}
+                style={{ padding: '12px 28px', background: '#e11d48', color: 'white', border: 'none', borderRadius: 9999, fontSize: 14, fontWeight: 700, cursor: processing ? 'not-allowed' : 'pointer', opacity: processing ? 0.7 : 1, transition: 'all 0.2s', display: 'flex', alignItems: 'center', gap: 8 }}
+              >
+                {processing ? (
+                  <><span style={{ width: 14, height: 14, border: '2px solid rgba(255,255,255,0.4)', borderTopColor: 'white', borderRadius: '50%', display: 'inline-block', animation: 'spin 0.6s linear infinite' }} />En cours...</>
+                ) : (
+                  <><span className="material-symbols-outlined" style={{ fontSize: 16 }}>
+                    {confirmAction.type === 'cancel_request' ? 'cancel' : 'delete'}
+                  </span>Confirmer</>  
+                )}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
     </>
   );
 }

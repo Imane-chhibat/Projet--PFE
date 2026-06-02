@@ -11,15 +11,16 @@ import {
 } from "lucide-react";
 
 import { api } from "../utils/api";
+import { ConditionsGeneralesModal } from "./ConditionsGeneralesModal";
 
 // Composant InputField
 function InputField({ icon, ...props }: any) {
   return (
-    <div className="flex items-center backdrop-blur-md bg-white/15 border border-white/25 rounded-full px-5 py-3.5 focus-within:border-amber-300/60 focus-within:bg-white/20 transition">
-      <span className="text-white/80 mr-3 shrink-0">{icon}</span>
+    <div className="flex items-center backdrop-blur-md bg-white/15 border border-white/25 rounded-full px-4 py-2 focus-within:border-amber-300/60 focus-within:bg-white/20 transition">
+      <span className="text-white/80 mr-2 shrink-0">{icon}</span>
       <input
         {...props}
-        className="bg-transparent outline-none text-white placeholder-white/70 w-full"
+        className="bg-transparent outline-none text-white placeholder-white/70 w-full text-sm"
       />
     </div>
   );
@@ -28,14 +29,14 @@ function InputField({ icon, ...props }: any) {
 // Composant SelectField
 function SelectField({ icon, name, value, onChange, placeholder, options }: any) {
   return (
-    <div className="flex items-center backdrop-blur-md bg-white/15 border border-white/25 rounded-full px-5 py-3.5 focus-within:border-amber-300/60 focus-within:bg-white/20 transition">
-      <span className="text-white/80 mr-3 shrink-0">{icon}</span>
+    <div className="flex items-center backdrop-blur-md bg-white/15 border border-white/25 rounded-full px-4 py-2 focus-within:border-amber-300/60 focus-within:bg-white/20 transition">
+      <span className="text-white/80 mr-2 shrink-0">{icon}</span>
       <select
         name={name}
         value={value}
         onChange={onChange}
         required
-        className={`bg-transparent outline-none w-full appearance-none cursor-pointer ${
+        className={`bg-transparent outline-none w-full appearance-none cursor-pointer text-sm ${
           value ? "text-white" : "text-white/70"
         }`}
       >
@@ -64,9 +65,10 @@ function SelectField({ icon, name, value, onChange, placeholder, options }: any)
 // Composant principal InscriptionClient
 interface InscriptionClientProps {
   onSuccess?: () => void;
+  onNavigateToLogin?: () => void;
 }
 
-export default function InscriptionClient({ onSuccess }: InscriptionClientProps) {
+export default function InscriptionClient({ onSuccess, onNavigateToLogin }: InscriptionClientProps) {
   const [form, setForm] = useState({
     nom: "",
     prenom: "",
@@ -82,6 +84,7 @@ export default function InscriptionClient({ onSuccess }: InscriptionClientProps)
   const [submitted, setSubmitted] = useState(false);
   const [passwordError, setPasswordError] = useState("");
   const [cities, setCities] = useState<string[]>([]);
+  const [showConditionsModal, setShowConditionsModal] = useState(false);
 
   // Fetch cities dynamically
   useEffect(() => {
@@ -147,8 +150,8 @@ export default function InscriptionClient({ onSuccess }: InscriptionClientProps)
 
   return (
     <div
-      className="min-h-screen w-full bg-cover bg-center bg-no-repeat flex items-center justify-center p-4 sm:p-8 relative"
-      style={{ backgroundColor: "#f6e7c1", minHeight: "100vh" }}
+      className="flex-1 w-full bg-cover bg-center bg-no-repeat flex items-center justify-center p-2 sm:p-4 relative"
+      style={{ backgroundColor: "#f6e7c1", overflow: "hidden" }}
     >
       {/* Overlay */}
       <div className="absolute inset-0 bg-gradient-to-b from-black/20 via-black/30 to-black/60" />
@@ -161,31 +164,36 @@ export default function InscriptionClient({ onSuccess }: InscriptionClientProps)
         </div>
       )}
 
-      <div className="relative w-full max-w-3xl z-10 my-10">
+      <ConditionsGeneralesModal 
+        isOpen={showConditionsModal} 
+        onClose={() => setShowConditionsModal(false)} 
+      />
+
+      <div className="relative w-full max-w-4xl z-10 my-1">
         {/* Card */}
-        <div className="backdrop-blur-2xl bg-white/10 border border-white/20 rounded-3xl shadow-2xl p-6 sm:p-10">
+        <div className="backdrop-blur-2xl bg-white/10 border border-white/20 rounded-3xl shadow-2xl p-4 sm:p-6">
           {/* Header */}
-          <div className="text-center mb-8">
+          <div className="text-center mb-3">
             <p className="text-white/80 text-sm sm:text-base">
               Vous avez déjà un compte ?{" "}
-              <a
-                href="#"
-                className="font-semibold underline underline-offset-2 hover:text-amber-300 transition"
+              <button
+                onClick={(e) => { e.preventDefault(); if (onNavigateToLogin) onNavigateToLogin(); }}
+                className="font-bold text-[#2A1B15] underline underline-offset-2 hover:text-[#603A2A] transition"
               >
                 Connexion
-              </a>
+              </button>
             </p>
-            <h1 className="text-white text-4xl sm:text-5xl font-light mt-3 tracking-wide">
+            <h1 className="text-white text-3xl sm:text-4xl font-light mt-1 tracking-wide">
               Inscription Client
             </h1>
-            <p className="text-white/70 text-sm mt-2">
+            <p className="text-white/70 text-xs mt-1">
               Rejoignez notre plateforme pour trouver les meilleurs artisans
             </p>
           </div>
 
-          <form onSubmit={handleSubmit} className="space-y-4">
+          <form onSubmit={handleSubmit} className="space-y-2.5">
             {/* Nom + Prénom */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <InputField
                 icon={<User className="w-5 h-5" />}
                 name="prenom"
@@ -205,7 +213,7 @@ export default function InscriptionClient({ onSuccess }: InscriptionClientProps)
             </div>
 
             {/* Téléphone + Email */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <InputField
                 icon={<Phone className="w-5 h-5" />}
                 name="telephone"
@@ -240,8 +248,8 @@ export default function InscriptionClient({ onSuccess }: InscriptionClientProps)
 
             {/* Mot de passe */}
             <div className="relative">
-              <div className="flex items-center backdrop-blur-md bg-white/15 border border-white/25 rounded-full px-5 py-3.5 focus-within:border-amber-300/60 focus-within:bg-white/20 transition">
-                <span className="text-white/80 mr-3">
+              <div className="flex items-center backdrop-blur-md bg-white/15 border border-white/25 rounded-full px-4 py-2 focus-within:border-amber-300/60 focus-within:bg-white/20 transition">
+                <span className="text-white/80 mr-2">
                   <Lock className="w-5 h-5" />
                 </span>
                 <input
@@ -252,7 +260,7 @@ export default function InscriptionClient({ onSuccess }: InscriptionClientProps)
                   placeholder="Mot de passe"
                   required
                   minLength={6}
-                  className="bg-transparent outline-none text-white placeholder-white/70 w-full"
+                  className="bg-transparent outline-none text-white placeholder-white/70 w-full text-sm"
                 />
                 <button
                   type="button"
@@ -261,9 +269,9 @@ export default function InscriptionClient({ onSuccess }: InscriptionClientProps)
                   aria-label="Afficher le mot de passe"
                 >
                   {showPwd ? (
-                    <EyeOff className="w-5 h-5" />
+                    <EyeOff className="w-4 h-4" />
                   ) : (
-                    <Eye className="w-5 h-5" />
+                    <Eye className="w-4 h-4" />
                   )}
                 </button>
               </div>
@@ -271,8 +279,8 @@ export default function InscriptionClient({ onSuccess }: InscriptionClientProps)
 
             {/* Confirmer mot de passe */}
             <div className="relative">
-              <div className="flex items-center backdrop-blur-md bg-white/15 border border-white/25 rounded-full px-5 py-3.5 focus-within:border-amber-300/60 focus-within:bg-white/20 transition">
-                <span className="text-white/80 mr-3">
+              <div className="flex items-center backdrop-blur-md bg-white/15 border border-white/25 rounded-full px-4 py-2 focus-within:border-amber-300/60 focus-within:bg-white/20 transition">
+                <span className="text-white/80 mr-2">
                   <Lock className="w-5 h-5" />
                 </span>
                 <input
@@ -282,7 +290,7 @@ export default function InscriptionClient({ onSuccess }: InscriptionClientProps)
                   onChange={handleChange}
                   placeholder="Confirmer le mot de passe"
                   required
-                  className="bg-transparent outline-none text-white placeholder-white/70 w-full"
+                  className="bg-transparent outline-none text-white placeholder-white/70 w-full text-sm"
                 />
                 <button
                   type="button"
@@ -291,14 +299,14 @@ export default function InscriptionClient({ onSuccess }: InscriptionClientProps)
                   aria-label="Afficher le mot de passe"
                 >
                   {showConfirmPwd ? (
-                    <EyeOff className="w-5 h-5" />
+                    <EyeOff className="w-4 h-4" />
                   ) : (
-                    <Eye className="w-5 h-5" />
+                    <Eye className="w-4 h-4" />
                   )}
                 </button>
               </div>
               {passwordError && (
-                <p className="text-red-400 text-xs mt-1 ml-5">{passwordError}</p>
+                <p className="text-red-400 text-[10px] mt-1 ml-4">{passwordError}</p>
               )}
             </div>
 
@@ -327,25 +335,25 @@ export default function InscriptionClient({ onSuccess }: InscriptionClientProps)
               </div>
               <span className="text-white/80 text-sm">
                 J'accepte les{" "}
-                <a href="#" className="underline hover:text-amber-300">
+                <button
+                  type="button"
+                  onClick={(e) => { e.preventDefault(); setShowConditionsModal(true); }}
+                  className="underline hover:text-amber-300 font-semibold"
+                >
                   conditions générales
-                </a>
+                </button>
               </span>
             </label>
 
             {/* Submit */}
             <button
               type="submit"
-              className="w-full mt-2 bg-white/80 hover:bg-white text-slate-800 font-semibold py-4 rounded-full transition shadow-lg hover:shadow-amber-300/30 hover:scale-[1.01] active:scale-[0.99]"
+              className="w-full mt-1 bg-white/80 hover:bg-white text-slate-800 font-semibold py-2.5 rounded-full transition shadow-lg hover:shadow-amber-300/30 hover:scale-[1.01] active:scale-[0.99] text-sm"
             >
               S'inscrire
             </button>
           </form>
         </div>
-
-        <p className="text-center text-white/60 text-xs mt-6">
-          © 2026 Espace Client — Tous droits réservés
-        </p>
       </div>
 
       <style>{`

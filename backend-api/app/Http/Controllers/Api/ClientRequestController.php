@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
 use App\Models\ClientRequest;
+use App\Models\Notification;
 use App\Models\User;
 use App\Services\WhatsAppService;
 use Illuminate\Http\JsonResponse;
@@ -106,12 +107,31 @@ class ClientRequestController extends Controller
     }
 
     /**
+     * GET /api/artisan/notifications
+     * Get all custom notifications for the artisan
+     */
+    public function notifications(Request $request): JsonResponse
+    {
+        $notifications = Notification::where('user_id', $request->user()->id)
+            ->orderBy('created_at', 'desc')
+            ->get();
+
+        return response()->json([
+            'notifications' => $notifications,
+        ]);
+    }
+
+    /**
      * PUT /api/artisan/requests/mark-read
-     * Mark all requests as read for the logged-in artisan
+     * Mark all requests and notifications as read for the logged-in artisan
      */
     public function markAsRead(Request $request): JsonResponse
     {
         ClientRequest::where('artisan_id', $request->user()->id)
+            ->where('is_read', false)
+            ->update(['is_read' => true]);
+
+        Notification::where('user_id', $request->user()->id)
             ->where('is_read', false)
             ->update(['is_read' => true]);
 
@@ -173,6 +193,48 @@ class ClientRequestController extends Controller
 
         return response()->json([
             'message' => 'Demande refusée',
+            'request' => $clientRequest,
+        ]);
+    }
+
+    /**
+     * PUT /api/requests/{id}/cancel
+     * Cancel a client request (by the client)
+     */
+    public function cancel(Request $request, $id): JsonResponse
+    {
+        $clientRequest = ClientRequest::with('artisan')->findOrFail($id);
+
+        // Only the client who created the request can cancel it
+        if ($clientRequest->client_id !== $request->user()->id) {
+            return response()->json(['message' => 'Unauthorized'], 403);
+        }
+
+        // Only pending or accepted requests can be cancelled
+        if (!in_array($clientRequest->status, ['pending', 'accepted'])) {
+            return response()->json(['message' => 'Cette demande ne peut pas être annulée.'], 422);
+        }
+
+        $clientRequest->update(['status' => 'cancelled']);
+
+        // Create an in-app notification for the artisan
+        $clientName = $request->user()->name;
+        $requestedDate = date('d/m/Y', strtotime($clientRequest->requested_date));
+
+        Notification::create([
+            'user_id' => $clientRequest->artisan_id,
+            'type'    => 'cancellation',
+            'title'   => 'Rendez-vous annulé',
+            'body'    => "Le client {$clientName} a annulé sa demande de rendez-vous prévue le {$requestedDate}.",
+            'data'    => [
+                'request_id'     => $clientRequest->id,
+                'client_name'    => $clientName,
+                'requested_date' => $clientRequest->requested_date,
+            ],
+        ]);
+
+        return response()->json([
+            'message' => 'Rendez-vous annulé avec succès',
             'request' => $clientRequest,
         ]);
     }

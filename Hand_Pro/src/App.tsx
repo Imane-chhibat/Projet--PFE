@@ -16,11 +16,15 @@ import ForgotPassword from './components/ForgotPassword';
 import { ProfilAdmin } from './components/ProfilAdmin';
 import MonProfilArtisan from './components/MonProfilArtisan';
 import { ChangePassword } from './components/ChangePassword';
-import { api } from './utils/api';
+
 export default function App() {
   const [activePage, setActivePage] = useState<'home' | 'search' | 'gps' | 'profile' | 'login' | 'forgot_password' | 'choix' | 'inscription_artisan' | 'inscription_client' | 'mon_profil' | 'change_password' | 'notifications' | 'client_profile' | 'admin_profile'>('home');
   const [userType, setUserType] = useState<'Visitor' | 'Registered User' | 'Artisan' | 'Admin'>('Visitor');
-  const [dataLoaded, setDataLoaded] = useState(false);
+
+  // Scroll to top on page change
+  useEffect(() => {
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  }, [activePage]);
 
   // Auto-login au démarrage si token existe
   useEffect(() => {
@@ -103,15 +107,17 @@ export default function App() {
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
+  const isNoScrollPage = ['login', 'inscription_client', 'choix'].includes(activePage);
+
   return (
-    <div className="min-h-screen flex flex-col bg-[#2A1B15] text-[#F5EDE0] font-sans selection:bg-[#CDB58E] selection:text-[#2A1B15]">
+    <div className={`${isNoScrollPage ? 'h-screen overflow-hidden' : 'min-h-screen'} flex flex-col bg-[#2A1B15] text-[#F5EDE0] font-sans selection:bg-[#CDB58E] selection:text-[#2A1B15]`}>
 
       {/* NAVBAR — reçoit onOpenLogin pour que "Se connecter" ouvre la modale */}
       {activePage !== 'change_password' && (
         <Navbar
           activePage={activePage}
           setActivePage={(page) => {
-            setActivePage(page);
+            setActivePage(page as any);
             window.scrollTo({ top: 0, behavior: 'smooth' });
           }}
           userType={userType}
@@ -135,7 +141,7 @@ export default function App() {
             initialSpecialty={searchParams.specialty}
             onSelectArtisan={handleSelectArtisan}
             onRequireRegistration={() => {
-              setActivePage('choix');
+              setActivePage('login');
               window.scrollTo({ top: 0, behavior: 'smooth' });
             }}
           />
@@ -146,11 +152,11 @@ export default function App() {
         {activePage === 'profile' && (
           <ProfilePage
             artisanId={selectedArtisanId}
-            userType={userType}
-            setUserType={setUserType}
+            userType={userType as any}
+            setUserType={setUserType as any}
             onBackToSearch={handleBackToSearch}
             onRequireRegistration={() => {
-              setActivePage('choix');
+              setActivePage('login');
               window.scrollTo({ top: 0, behavior: 'smooth' });
             }}
           />
@@ -159,6 +165,7 @@ export default function App() {
           <Login 
             onLogin={handleLoginSuccess} 
             onForgotPassword={() => { setActivePage('forgot_password'); window.scrollTo({ top: 0, behavior: 'smooth' }); }} 
+            onNavigateToChoix={() => { setActivePage('choix'); window.scrollTo({ top: 0, behavior: 'smooth' }); }}
           />
         )}
         {activePage === 'forgot_password' && (
@@ -168,13 +175,13 @@ export default function App() {
           />
         )}
         {activePage === 'choix' && (
-          <Choix onNavigate={setActivePage} />
+          <Choix onNavigate={(page) => setActivePage(page as any)} />
         )}
         {activePage === 'inscription_artisan' && (
-          <InscriptionArtisan onSuccess={handleArtisanRegistered} />
+          <InscriptionArtisan onSuccess={handleArtisanRegistered} onNavigateToLogin={() => setActivePage('login')} />
         )}
         {activePage === 'inscription_client' && (
-          <InscriptionClient onSuccess={handleClientRegistered} />
+          <InscriptionClient onSuccess={handleClientRegistered} onNavigateToLogin={() => setActivePage('login')} />
         )}
         {activePage === 'notifications' && (
           <NotificationsPage />
@@ -183,6 +190,7 @@ export default function App() {
           <ProfilClient
             onNavigateToInscription={() => setActivePage('inscription_client')}
             onNavigateToArtisanProfile={handleSelectArtisan}
+            onNavigateToHome={() => { setActivePage('home'); window.scrollTo({ top: 0, behavior: 'smooth' }); }}
           />
         )}
         {activePage === 'admin_profile' && (
@@ -192,7 +200,11 @@ export default function App() {
           <MonProfilArtisan onBack={() => { setActivePage('home'); window.scrollTo({ top: 0, behavior: 'smooth' }); }} />
         )}
         {activePage === 'change_password' && (
-          <ChangePassword onBack={() => { setActivePage('mon_profil'); window.scrollTo({ top: 0, behavior: 'smooth' }); }} />
+          <ChangePassword onBack={() => { 
+            const backPage = userType === 'Artisan' ? 'mon_profil' : 'client_profile';
+            setActivePage(backPage); 
+            window.scrollTo({ top: 0, behavior: 'smooth' }); 
+          }} />
         )}
       </div>
 

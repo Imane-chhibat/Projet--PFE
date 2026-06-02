@@ -37,6 +37,36 @@ export const api = {
     return res.json();
   },
 
+  // Testimonials (comments) APIs
+  async getComments() {
+    const res = await fetch(`${API_BASE}/comments`);
+    if (!res.ok) throw new Error('Failed to fetch comments');
+    return res.json();
+  },
+
+  async getAllComments() {
+    const res = await fetch(`${API_BASE}/comments/all`);
+    if (!res.ok) throw new Error('Failed to fetch all comments');
+    return res.json();
+  },
+
+  async postComment(payload: { body: string }) {
+    const token = localStorage.getItem('auth_token');
+    const res = await fetch(`${API_BASE}/comments`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${token}`,
+      },
+      body: JSON.stringify(payload),
+    });
+    if (!res.ok) {
+      const err = await res.json();
+      throw new Error(err.message || 'Failed to submit comment');
+    }
+    return res.json();
+  },
+
   async getArtisans(filters?: { category?: string; city?: string }) {
     const params = new URLSearchParams();
     if (filters?.category) params.append('category', filters.category);
@@ -164,6 +194,18 @@ export const api = {
     return res.json();
   },
 
+  async getArtisanNotifications() {
+    const token = localStorage.getItem('auth_token');
+    const res = await fetch(`${API_BASE}/artisan/notifications`, {
+      headers: {
+        'Authorization': `Bearer ${token}`,
+        'Accept': 'application/json',
+      },
+    });
+    if (!res.ok) throw new Error('Erreur lors de la récupération des notifications');
+    return res.json();
+  },
+
   async acceptClientRequest(requestId: string | number) {
     const token = localStorage.getItem('auth_token');
     const res = await fetch(`${API_BASE}/requests/${requestId}/accept`, {
@@ -190,6 +232,22 @@ export const api = {
     return res.json();
   },
 
+  async cancelClientRequest(requestId: string | number) {
+    const token = localStorage.getItem('auth_token');
+    const res = await fetch(`${API_BASE}/requests/${requestId}/cancel`, {
+      method: 'PUT',
+      headers: {
+        'Authorization': `Bearer ${token}`,
+        'Accept': 'application/json',
+      },
+    });
+    if (!res.ok) {
+      const err = await res.json();
+      throw new Error(err.message || 'Erreur lors de l\'annulation');
+    }
+    return res.json();
+  },
+
   async markRequestsAsRead() {
     const token = localStorage.getItem('auth_token');
     const res = await fetch(`${API_BASE}/artisan/requests/mark-read`, {
@@ -204,11 +262,13 @@ export const api = {
   },
 
   async addReview(artisanId: string, review: ReviewInput) {
+    const token = localStorage.getItem('auth_token');
     const res = await fetch(`${API_BASE}/artisans/${artisanId}/reviews`, {
       method: 'POST',
       headers: { 
         'Content-Type': 'application/json',
-        'Accept': 'application/json'
+        'Accept': 'application/json',
+        'Authorization': `Bearer ${token}`,
       },
       body: JSON.stringify(review),
     });
@@ -400,6 +460,56 @@ export const api = {
       },
     });
     if (!res.ok) throw new Error('Erreur lors de la récupération des statistiques');
+    return res.json();
+  },
+
+  async getClientReviews() {
+    const token = localStorage.getItem('auth_token');
+    const res = await fetch(`${API_BASE}/client/reviews`, {
+      headers: {
+        'Authorization': `Bearer ${token}`,
+        'Accept': 'application/json',
+      },
+    });
+    if (!res.ok) throw new Error('Erreur lors de la récupération des avis');
+    return res.json();
+  },
+
+  async deleteClientReview(id: number) {
+    const token = localStorage.getItem('auth_token');
+    const res = await fetch(`${API_BASE}/client/reviews/${id}`, {
+      method: 'DELETE',
+      headers: {
+        'Authorization': `Bearer ${token}`,
+        'Accept': 'application/json',
+      },
+    });
+    if (!res.ok) throw new Error('Erreur lors de la suppression de l\'avis');
+    return res.json();
+  },
+
+  async getClientComments() {
+    const token = localStorage.getItem('auth_token');
+    const res = await fetch(`${API_BASE}/client/comments`, {
+      headers: {
+        'Authorization': `Bearer ${token}`,
+        'Accept': 'application/json',
+      },
+    });
+    if (!res.ok) throw new Error('Erreur lors de la récupération des commentaires');
+    return res.json();
+  },
+
+  async deleteClientComment(id: number) {
+    const token = localStorage.getItem('auth_token');
+    const res = await fetch(`${API_BASE}/client/comments/${id}`, {
+      method: 'DELETE',
+      headers: {
+        'Authorization': `Bearer ${token}`,
+        'Accept': 'application/json',
+      },
+    });
+    if (!res.ok) throw new Error('Erreur lors de la suppression du commentaire');
     return res.json();
   },
 

@@ -85,10 +85,13 @@ class AuthController extends Controller
         return response()->json([
             'message' => 'Inscription réussie',
             'user'    => [
-                'id'    => $user->id,
-                'name'  => $user->name,
-                'email' => $user->email,
-                'role'  => $validated['role'], // Return frontend role name
+                'id'     => $user->id,
+                'name'   => $user->name,
+                'email'  => $user->email,
+                'role'   => $validated['role'],
+                'avatar' => null,
+                'phone'  => $user->phone,
+                'city'   => $user->city,
             ],
             'token' => $token,
         ], 201);
@@ -135,10 +138,13 @@ class AuthController extends Controller
         return response()->json([
             'message' => 'Connexion réussie',
             'user'    => [
-                'id'    => $user->id,
-                'name'  => $user->name,
-                'email' => $user->email,
-                'role'  => $frontendRole,
+                'id'     => $user->id,
+                'name'   => $user->name,
+                'email'  => $user->email,
+                'role'   => $frontendRole,
+                'avatar' => $user->avatar ? url('storage/' . $user->avatar) : null,
+                'phone'  => $user->phone,
+                'city'   => $user->city,
             ],
             'token' => $token,
         ]);

@@ -14,15 +14,16 @@ import {
   CheckCircle2,
 } from "lucide-react";
 import { api } from "../utils/api";
+import { ConditionsGeneralesModal } from "./ConditionsGeneralesModal";
 
 // Composant InputField
 function InputField({ icon, ...props }: any) {
   return (
-    <div className="flex items-center backdrop-blur-md bg-white/15 border border-white/25 rounded-full px-5 py-3.5 focus-within:border-amber-300/60 focus-within:bg-white/20 transition">
-      <span className="text-white/80 mr-3 shrink-0">{icon}</span>
+    <div className="flex items-center backdrop-blur-md bg-white/15 border border-white/25 rounded-full px-4 py-2 focus-within:border-amber-300/60 focus-within:bg-white/20 transition">
+      <span className="text-white/80 mr-2 shrink-0">{icon}</span>
       <input
         {...props}
-        className="bg-transparent outline-none text-white placeholder-white/70 w-full"
+        className="bg-transparent outline-none text-white placeholder-white/70 w-full text-sm"
       />
     </div>
   );
@@ -31,14 +32,14 @@ function InputField({ icon, ...props }: any) {
 // Composant SelectField
 function SelectField({ icon, name, value, onChange, placeholder, options }: any) {
   return (
-    <div className="flex items-center backdrop-blur-md bg-white/15 border border-white/25 rounded-full px-5 py-3.5 focus-within:border-amber-300/60 focus-within:bg-white/20 transition">
-      <span className="text-white/80 mr-3 shrink-0">{icon}</span>
+    <div className="flex items-center backdrop-blur-md bg-white/15 border border-white/25 rounded-full px-4 py-2 focus-within:border-amber-300/60 focus-within:bg-white/20 transition">
+      <span className="text-white/80 mr-2 shrink-0">{icon}</span>
       <select
         name={name}
         value={value}
         onChange={onChange}
         required
-        className={`bg-transparent outline-none w-full appearance-none cursor-pointer ${
+        className={`bg-transparent outline-none w-full appearance-none cursor-pointer text-sm ${
           value ? "text-white" : "text-white/70"
         }`}
       >
@@ -65,7 +66,7 @@ function SelectField({ icon, name, value, onChange, placeholder, options }: any)
 }
 
 // Composant principal InscriptionArtisan
-export default function InscriptionArtisan({ onSuccess }: { onSuccess?: () => void }) {
+export default function InscriptionArtisan({ onSuccess, onNavigateToLogin }: { onSuccess?: () => void, onNavigateToLogin?: () => void }) {
   const [form, setForm] = useState({
     nom: "",
     prenom: "",
@@ -78,13 +79,13 @@ export default function InscriptionArtisan({ onSuccess }: { onSuccess?: () => vo
     password: "",
     confirmPassword: "",
     conditions: false,
-    description: "",
   });
   const [showPwd, setShowPwd] = useState(false);
   const [showConfirmPwd, setShowConfirmPwd] = useState(false);
   const [submitted, setSubmitted] = useState(false);
   const [passwordError, setPasswordError] = useState("");
   const [cities, setCities] = useState<string[]>([]);
+  const [showConditionsModal, setShowConditionsModal] = useState(false);
   const [categories, setCategories] = useState<string[]>([]);
 
   useEffect(() => {
@@ -142,7 +143,6 @@ export default function InscriptionArtisan({ onSuccess }: { onSuccess?: () => vo
       formData.append("phone", form.telephone);
       formData.append("cin", form.cin);
       formData.append("is_certified", form.certifie ? "1" : "0");
-      formData.append("description", form.description);
       
       const attestationInput = e.target.querySelector('input[name="attestation"]');
       if (attestationInput && attestationInput.files[0]) {
@@ -169,8 +169,8 @@ export default function InscriptionArtisan({ onSuccess }: { onSuccess?: () => vo
 
   return (
     <div
-      className="min-h-screen w-full bg-cover bg-center bg-no-repeat flex items-center justify-center p-4 sm:p-8 relative"
-      style={{ backgroundColor: "#f6e7c1", minHeight: "100vh" }}
+      className="flex-1 w-full bg-cover bg-center bg-no-repeat flex items-start justify-center pt-4 pb-8 sm:pt-6 sm:pb-12 px-4 sm:px-8 relative"
+      style={{ backgroundColor: "#f6e7c1" }}
     >
       {/* Overlay */}
       <div className="absolute inset-0 bg-gradient-to-b from-black/20 via-black/30 to-black/60" />
@@ -183,31 +183,36 @@ export default function InscriptionArtisan({ onSuccess }: { onSuccess?: () => vo
         </div>
       )}
 
-      <div className="relative w-full max-w-3xl z-10 my-10">
+      <ConditionsGeneralesModal 
+        isOpen={showConditionsModal} 
+        onClose={() => setShowConditionsModal(false)} 
+      />
+
+      <div className="relative w-full max-w-4xl z-10 my-4">
         {/* Card */}
-        <div className="backdrop-blur-2xl bg-white/10 border border-white/20 rounded-3xl shadow-2xl p-6 sm:p-10">
+        <div className="backdrop-blur-2xl bg-white/10 border border-white/20 rounded-3xl shadow-2xl p-6 sm:p-8">
           {/* Header */}
-          <div className="text-center mb-8">
+          <div className="text-center mb-4">
             <p className="text-white/80 text-sm sm:text-base">
               Vous avez déjà un compte ?{" "}
-              <a
-                href="#"
-                className="font-semibold underline underline-offset-2 hover:text-amber-300 transition"
+              <button
+                onClick={(e) => { e.preventDefault(); if (onNavigateToLogin) onNavigateToLogin(); }}
+                className="font-bold text-[#2A1B15] underline underline-offset-2 hover:text-[#603A2A] transition"
               >
                 Connexion
-              </a>
+              </button>
             </p>
             <h1 className="text-white text-4xl sm:text-5xl font-light mt-3 tracking-wide">
               Inscription Artisan
             </h1>
-            <p className="text-white/70 text-sm mt-2">
+            <p className="text-white/70 text-xs mt-1">
               Rejoignez notre plateforme et développez votre activité
             </p>
           </div>
 
-          <form onSubmit={handleSubmit} className="space-y-4">
+          <form onSubmit={handleSubmit} className="space-y-3">
             {/* Nom + Prénom */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <InputField
                 icon={<User className="w-5 h-5" />}
                 name="prenom"
@@ -227,7 +232,7 @@ export default function InscriptionArtisan({ onSuccess }: { onSuccess?: () => vo
             </div>
 
             {/* CIN */}
-            <div className="grid grid-cols-1 gap-4">
+            <div className="grid grid-cols-1 gap-3">
               <InputField
                 icon={<IdCard className="w-5 h-5" />}
                 name="cin"
@@ -239,7 +244,7 @@ export default function InscriptionArtisan({ onSuccess }: { onSuccess?: () => vo
             </div>
 
             {/* Téléphone + Email */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <InputField
                 icon={<Phone className="w-5 h-5" />}
                 name="telephone"
@@ -261,7 +266,7 @@ export default function InscriptionArtisan({ onSuccess }: { onSuccess?: () => vo
             </div>
 
             {/* Ville + Métier */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <SelectField
                 icon={<MapPin className="w-5 h-5" />}
                 name="ville"
@@ -280,29 +285,10 @@ export default function InscriptionArtisan({ onSuccess }: { onSuccess?: () => vo
               />
             </div>
 
-            {/* Description */}
-            <div className="grid grid-cols-1 gap-4">
-              <div className="flex items-start backdrop-blur-md bg-white/15 border border-white/25 rounded-2xl px-5 py-3.5 focus-within:border-amber-300/60 focus-within:bg-white/20 transition">
-                <span className="text-white/80 mr-3 mt-1 shrink-0">
-                  <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M4 6h16M4 12h16M4 18h7" />
-                  </svg>
-                </span>
-                <textarea
-                  name="description"
-                  placeholder="Petite description (votre expérience, savoir-faire...)"
-                  value={form.description}
-                  onChange={handleChange}
-                  rows={2}
-                  className="bg-transparent outline-none text-white placeholder-white/70 w-full resize-none"
-                />
-              </div>
-            </div>
-
             {/* Mot de passe */}
             <div className="relative">
-              <div className="flex items-center backdrop-blur-md bg-white/15 border border-white/25 rounded-full px-5 py-3.5 focus-within:border-amber-300/60 focus-within:bg-white/20 transition">
-                <span className="text-white/80 mr-3">
+              <div className="flex items-center backdrop-blur-md bg-white/15 border border-white/25 rounded-full px-4 py-2 focus-within:border-amber-300/60 focus-within:bg-white/20 transition">
+                <span className="text-white/80 mr-2">
                   <Lock className="w-5 h-5" />
                 </span>
                 <input
@@ -313,7 +299,7 @@ export default function InscriptionArtisan({ onSuccess }: { onSuccess?: () => vo
                   placeholder="Mot de passe"
                   required
                   minLength={6}
-                  className="bg-transparent outline-none text-white placeholder-white/70 w-full"
+                  className="bg-transparent outline-none text-white placeholder-white/70 w-full text-sm"
                 />
                 <button
                   type="button"
@@ -322,9 +308,9 @@ export default function InscriptionArtisan({ onSuccess }: { onSuccess?: () => vo
                   aria-label="Afficher le mot de passe"
                 >
                   {showPwd ? (
-                    <EyeOff className="w-5 h-5" />
+                    <EyeOff className="w-4 h-4" />
                   ) : (
-                    <Eye className="w-5 h-5" />
+                    <Eye className="w-4 h-4" />
                   )}
                 </button>
               </div>
@@ -332,8 +318,8 @@ export default function InscriptionArtisan({ onSuccess }: { onSuccess?: () => vo
 
             {/* Confirmer mot de passe */}
             <div className="relative">
-              <div className="flex items-center backdrop-blur-md bg-white/15 border border-white/25 rounded-full px-5 py-3.5 focus-within:border-amber-300/60 focus-within:bg-white/20 transition">
-                <span className="text-white/80 mr-3">
+              <div className="flex items-center backdrop-blur-md bg-white/15 border border-white/25 rounded-full px-4 py-2 focus-within:border-amber-300/60 focus-within:bg-white/20 transition">
+                <span className="text-white/80 mr-2">
                   <Lock className="w-5 h-5" />
                 </span>
                 <input
@@ -343,7 +329,7 @@ export default function InscriptionArtisan({ onSuccess }: { onSuccess?: () => vo
                   onChange={handleChange}
                   placeholder="Confirmer le mot de passe"
                   required
-                  className="bg-transparent outline-none text-white placeholder-white/70 w-full"
+                  className="bg-transparent outline-none text-white placeholder-white/70 w-full text-sm"
                 />
                 <button
                   type="button"
@@ -352,22 +338,22 @@ export default function InscriptionArtisan({ onSuccess }: { onSuccess?: () => vo
                   aria-label="Afficher le mot de passe"
                 >
                   {showConfirmPwd ? (
-                    <EyeOff className="w-5 h-5" />
+                    <EyeOff className="w-4 h-4" />
                   ) : (
-                    <Eye className="w-5 h-5" />
+                    <Eye className="w-4 h-4" />
                   )}
                 </button>
               </div>
               {!passwordError && (
-                <p className="text-white/50 text-xs mt-1 ml-5">Veuillez saisir le même mot de passe pour confirmation</p>
+                <p className="text-white/50 text-[10px] mt-1 ml-4">Veuillez saisir le même mot de passe pour confirmation</p>
               )}
               {passwordError && (
-                <p className="text-red-400 text-xs mt-1 ml-5">{passwordError}</p>
+                <p className="text-red-400 text-[10px] mt-1 ml-4">{passwordError}</p>
               )}
             </div>
 
             {/* Certifié */}
-            <label className="flex items-center gap-3 backdrop-blur-md bg-white/10 border border-white/20 rounded-2xl px-5 py-3 cursor-pointer hover:bg-white/15 transition group">
+            <label className="flex items-center gap-2 backdrop-blur-md bg-white/10 border border-white/20 rounded-2xl px-4 py-2 cursor-pointer hover:bg-white/15 transition group">
               <input
                 type="checkbox"
                 name="certifie"
@@ -442,16 +428,20 @@ export default function InscriptionArtisan({ onSuccess }: { onSuccess?: () => vo
               </div>
               <span className="text-white/80 text-sm">
                 J'accepte les{" "}
-                <a href="#" className="underline hover:text-amber-300">
+                <button
+                  type="button"
+                  onClick={(e) => { e.preventDefault(); setShowConditionsModal(true); }}
+                  className="underline hover:text-amber-300 font-semibold"
+                >
                   conditions générales
-                </a>
+                </button>
               </span>
             </label>
 
             {/* Submit */}
             <button
               type="submit"
-              className="w-full mt-2 bg-white/80 hover:bg-white text-slate-800 font-semibold py-4 rounded-full transition shadow-lg hover:shadow-amber-300/30 hover:scale-[1.01] active:scale-[0.99]"
+              className="w-full mt-1 bg-white/80 hover:bg-white text-slate-800 font-semibold py-2.5 rounded-full transition shadow-lg hover:shadow-amber-300/30 hover:scale-[1.01] active:scale-[0.99] text-sm"
             >
               S'inscrire
             </button>

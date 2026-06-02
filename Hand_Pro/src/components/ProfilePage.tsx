@@ -11,9 +11,12 @@ import {
   X, 
   MessageSquarePlus,
   Lock,
-  ChevronLeft
+  ChevronLeft,
+  Calendar,
+  Trash2
 } from 'lucide-react';
 import { api } from '../utils/api';
+import { AuthAlertModal } from './AuthAlertModal';
 
 interface ProfilePageProps {
   artisanId: string;
@@ -44,11 +47,16 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({
   const [selectedDay, setSelectedDay] = useState<number | null>(null);
   const [rdvConfirmed, setRdvConfirmed] = useState<boolean>(false);
   const [rdvForm, setRdvForm] = useState({ name: '', phone: '', service: '', note: '' });
+  const [showAuthAlert, setShowAuthAlert] = useState<boolean>(false);
 
   // Reviews state
   const [reviewsList, setReviewsList] = useState<any[]>([]);
-  const [newReviewText, setNewReviewText] = useState('');
   const [newReviewRating, setNewReviewRating] = useState(5);
+  const [newReviewText, setNewReviewText] = useState('');
+  const [reviewToDelete, setReviewToDelete] = useState<string | number | null>(null);
+  const [deletingReview, setDeletingReview] = useState(false);
+
+  const currentUser = JSON.parse(localStorage.getItem('auth_user') || '{}');
 
   React.useEffect(() => {
     const fetchArtisan = async () => {
@@ -57,6 +65,18 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({
         const data = await api.getArtisan(artisanId);
         setArtisan(data);
         setReviewsList(data.reviews || []);
+
+        // Check if artisan is favorited by logged-in user
+        if (localStorage.getItem('auth_token')) {
+          try {
+            const favs = await api.getClientFavorites();
+            if (favs.favorites.some((fav: any) => String(fav.artisan.id) === artisanId || String(fav.artisan_id) === artisanId)) {
+              setIsFavorited(true);
+            }
+          } catch (e) {
+            // ignore if not logged in or error
+          }
+        }
       } catch (err: any) {
         setError(err.message || "Failed to load profile");
       } finally {
@@ -70,19 +90,22 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({
     e.preventDefault();
     if (!newReviewText.trim()) return;
     
-    let clientName = userType === 'Artisan' ? 'Maâlem Partenaire' : 'Client Vérifié';
-    const storedUserStr = localStorage.getItem('handpro_user');
+    // Read real user info from localStorage
+    let clientName = 'Client Vérifié';
+    let clientAvatar = '';
+    const storedUserStr = localStorage.getItem('auth_user');
     if (storedUserStr) {
       try {
         const u = JSON.parse(storedUserStr);
-        if (u && u.name) clientName = u.name;
+        if (u?.name) clientName = u.name;
+        if (u?.avatar) clientAvatar = u.avatar;
       } catch (err) {}
     }
 
     try {
       const res = await api.addReview(artisan.id, {
         clientName,
-        clientAvatar: 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?auto=format&fit=crop&w=100&q=80',
+        clientAvatar,
         comment: newReviewText,
         rating: newReviewRating
       });
@@ -103,6 +126,24 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({
     }
   };
 
+  const confirmDeleteReview = async () => {
+    if (!reviewToDelete) return;
+    setDeletingReview(true);
+    try {
+      // IDs from artisan API come as 'r5' format, strip the 'r' prefix
+      const numericId = typeof reviewToDelete === 'string'
+        ? parseInt(reviewToDelete.replace('r', ''))
+        : reviewToDelete;
+      await api.deleteClientReview(numericId);
+      setReviewsList(prev => prev.filter(r => r.id !== reviewToDelete));
+      setReviewToDelete(null);
+    } catch (err: any) {
+      alert("Erreur lors de la suppression : " + (err.message || 'Veuillez réessayer.'));
+    } finally {
+      setDeletingReview(false);
+    }
+  };
+
   const triggerRdv = (dayNumber?: number) => {
     setSelectedDay(dayNumber || 18);
     setShowRdvModal(true);
@@ -113,8 +154,7 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({
     e.preventDefault();
     
     if (userType === 'Visitor') {
-      alert("Vous devez être connecté ou inscrit pour envoyer une demande.");
-      if (onRequireRegistration) onRequireRegistration();
+      setShowAuthAlert(true);
       return;
     }
 
@@ -158,6 +198,51 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({
             <button onClick={onBackToSearch} className="mt-4 text-[#603A2A] underline">Retour à la recherche</button>
           )}
         </div>
+        
+        {/* Auth Alert Modal */}
+        <AuthAlertModal 
+          isOpen={showAuthAlert} 
+          onClose={() => setShowAuthAlert(false)} 
+          onLoginClick={() => {
+            if (onRequireRegistration) onRequireRegistration();
+          }} 
+        />
+
+        {/* Modal de confirmation de suppression d'avis */}
+        {reviewToDelete && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-[#2A1B15]/80 backdrop-blur-sm animate-fadeIn">
+            <div className="bg-[#FFFFFF] rounded-2xl p-6 sm:p-8 max-w-sm w-full border border-[#CDB58E]/30 shadow-2xl relative text-center">
+              <div className="w-16 h-16 bg-rose-100 rounded-full flex items-center justify-center mx-auto mb-4 border-4 border-white shadow-sm">
+                <Trash2 className="text-rose-600" size={24} />
+              </div>
+              <h3 className="font-display font-bold text-xl text-[#2A1B15] mb-2">
+                Supprimer l'avis ?
+              </h3>
+              <p className="text-[#8E887F] text-sm mb-6">
+                Cette action est irréversible. Êtes-vous sûr de vouloir supprimer cet avis ?
+              </p>
+              <div className="flex items-center gap-3 w-full">
+                <button
+                  onClick={() => setReviewToDelete(null)}
+                  className="flex-1 py-2.5 rounded-lg border border-[#8E887F]/30 text-[#8E887F] font-bold text-sm hover:bg-[#F5EDE0] transition-colors"
+                >
+                  Annuler
+                </button>
+                <button
+                  onClick={confirmDeleteReview}
+                  disabled={deletingReview}
+                  className="flex-1 py-2.5 rounded-lg bg-rose-600 text-white font-bold text-sm hover:bg-rose-700 disabled:opacity-60 disabled:cursor-not-allowed transition-colors shadow-sm flex items-center justify-center gap-2"
+                >
+                  {deletingReview ? (
+                    <><span className="w-4 h-4 border-2 border-white/40 border-t-white rounded-full animate-spin inline-block" />Suppression...</>
+                  ) : (
+                    <>Oui, supprimer</>
+                  )}
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
       </div>
     );
   }
@@ -200,22 +285,32 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({
             {/* Colonne Gauche: Photo + Titres */}
             <div className="flex flex-col md:flex-row items-center md:items-end gap-5 text-center md:text-left w-full md:w-auto">
               
-              {/* Photo de profil : grande (120px), ronde, bordure blanche 4px + ombre */}
-              <div className="relative shrink-0 w-28 h-28 md:w-32 md:h-32 rounded-full border-4 border-white shadow-xl bg-[#2A1B15] flex items-center justify-center text-[#CDB58E] font-bold text-5xl overflow-hidden">
-                {artisan.avatar ? (
-                  <img 
-                    src={artisan.avatar} 
-                    alt={artisan.name} 
-                    className="w-full h-full object-cover object-top"
-                  />
-                ) : (
-                  <span>{artisan.name?.charAt(0).toUpperCase() || 'A'}</span>
-                )}
-                
-                {/* Si certifié : badge diplôme doré overlaid en bas-droit de la photo */}
+              {/* Photo de profil — wrapper relatif pour badge externe */}
+              <div className="relative shrink-0 w-28 h-28 md:w-32 md:h-32">
+
+                {/* Cercle photo */}
+                <div className="w-full h-full rounded-full border-4 border-white shadow-xl bg-[#2A1B15] flex items-center justify-center text-[#CDB58E] font-bold text-5xl overflow-hidden">
+                  {artisan.avatar ? (
+                    <img
+                      src={artisan.avatar}
+                      alt={artisan.name}
+                      className="w-full h-full object-cover object-top"
+                    />
+                  ) : (
+                    <span>{artisan.name?.charAt(0).toUpperCase() || 'A'}</span>
+                  )}
+                </div>
+
+                {/* Badge certifié — juste en dessous à droite de la photo */}
                 {artisan.isCertified && (
-                  <div className="absolute bottom-1 right-1 bg-[#CDB58E] text-[#2A1B15] p-1.5 rounded-full shadow border-2 border-white" title="Lauréat OFPPT">
-                    <Award size={18} className="fill-[#2A1B15] text-[#CDB58E]" />
+                  <div className="absolute -bottom-2 right-0 group z-20">
+                    <div className="w-9 h-9 rounded-full bg-[#CDB58E] border-2 border-white shadow-lg flex items-center justify-center cursor-default">
+                      <Award size={18} className="text-[#2A1B15] fill-[#2A1B15]" />
+                    </div>
+                    {/* Tooltip survol */}
+                    <div className="absolute bottom-full right-0 mb-1 whitespace-nowrap bg-[#2A1B15] text-[#CDB58E] text-[10px] font-bold px-2 py-1 rounded shadow-lg border border-[#CDB58E]/40 opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none">
+                      ✓ Artisan Certifié OFPPT
+                    </div>
                   </div>
                 )}
               </div>
@@ -272,34 +367,23 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({
               
               {/* "Prendre RDV" → #603A2A, plein, taille large */}
               <button
-                onClick={() => triggerRdv()}
+                onClick={() => {
+                  if (userType === 'Visitor') {
+                    setShowAuthAlert(true);
+                  } else {
+                    triggerRdv();
+                  }
+                }}
                 className="px-6 py-2.5 bg-[#603A2A] text-white hover:bg-[#CDB58E] hover:text-[#2A1B15] transition-all rounded-lg font-bold text-xs sm:text-sm shadow-md"
               >
                 Prendre RDV
-              </button>
-
-              {/* "Contacter" → bordure #CDB58E, texte #CDB58E */}
-              <button
-                onClick={() => {
-                  if (userType === 'Visitor') {
-                    alert("Numéro masqué pour les visiteurs. Veuillez vous inscrire ou vous connecter d'abord.");
-                    if (onRequireRegistration) onRequireRegistration();
-                  } else {
-                    alert(`Appel direct initié au ${artisan.phone}`);
-                  }
-                }}
-                className="px-4 py-2.5 bg-transparent border border-[#CDB58E] text-[#CDB58E] hover:bg-[#CDB58E] hover:text-[#2A1B15] transition-all rounded-lg text-xs sm:text-sm font-medium flex items-center gap-1.5"
-              >
-                <Phone size={14} />
-                <span>Contacter</span>
               </button>
 
               {/* "Ajouter aux favoris" → cœur icône */}
               <button
                 onClick={async () => {
                   if (userType === 'Visitor') {
-                    alert("Vous devez être connecté pour ajouter aux favoris.");
-                    if (onRequireRegistration) onRequireRegistration();
+                    setShowAuthAlert(true);
                     return;
                   }
                   setFavoriteLoading(true);
@@ -641,13 +725,13 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({
                     <div className="bg-[#F5EDE0]/60 p-4 rounded-lg text-center space-y-2 border border-[#8E887F]/20">
                       <Lock size={16} className="mx-auto text-[#8E887F]" />
                       <p className="text-xs text-[#8E887F]">
-                        Vous devez être inscrit et connecté pour publier une évaluation ou prendre un rendez-vous.
+                        Vous devez être connecté d'abord
                       </p>
                       <button
-                        onClick={() => { if (onRequireRegistration) onRequireRegistration(); }}
+                        onClick={() => setShowAuthAlert(true)}
                         className="px-3 py-1 bg-[#603A2A] text-white rounded text-xs font-medium hover:bg-[#603A2A]/90 transition-all"
                       >
-                        S'inscrire / Se connecter
+                        Commentaire
                       </button>
                     </div>
                   ) : (
@@ -700,17 +784,33 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({
                       <div key={rev.id} className="bg-white rounded-xl p-4 shadow-xs border border-[#F5EDE0]">
                         <div className="flex items-center justify-between gap-2 mb-2">
                           <div className="flex items-center gap-2.5">
-                            <img src={rev.clientAvatar} alt={rev.clientName} className="w-8 h-8 rounded-full object-cover border border-[#CDB58E]" />
+                            {rev.clientAvatar ? (
+                              <img src={rev.clientAvatar} alt={rev.clientName} className="w-8 h-8 rounded-full object-cover border border-[#CDB58E]" />
+                            ) : (
+                              <div className="w-8 h-8 rounded-full border border-[#CDB58E] bg-[#F5EDE0] flex items-center justify-center flex-shrink-0" style={{ fontWeight: 700, color: '#603A2A', fontSize: 14 }}>
+                                {rev.clientName?.charAt(0)?.toUpperCase() || 'C'}
+                              </div>
+                            )}
                             <div>
                               <h5 className="font-sans font-bold text-xs text-[#2A1B15]">{rev.clientName}</h5>
                               <span className="text-[9px] text-[#8E887F]">{rev.date}</span>
                             </div>
                           </div>
-                          
-                          <div className="flex text-[#CDB58E]">
-                            {[...Array(rev.rating)].map((_, i) => (
-                              <Star key={i} size={12} className="fill-[#CDB58E]" />
-                            ))}
+                          <div className="flex items-center gap-4">
+                            <div className="flex text-[#CDB58E]">
+                              {[...Array(rev.rating)].map((_, i) => (
+                                <Star key={i} size={12} className="fill-[#CDB58E]" />
+                              ))}
+                            </div>
+                            {String(rev.user_id) === String(currentUser.id) && (
+                              <button 
+                                onClick={() => setReviewToDelete(rev.id)}
+                                className="text-rose-400 hover:text-rose-600 transition-colors p-1 rounded hover:bg-rose-50"
+                                title="Supprimer cet avis"
+                              >
+                                <Trash2 size={14} />
+                              </button>
+                            )}
                           </div>
                         </div>
 
@@ -830,7 +930,7 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({
                   Statut de réservation
                 </span>
                 
-                {artisan.availability === 'available' ? (
+                {artisan.availability !== 'busy' ? (
                   <div className="inline-flex items-center gap-1.5 bg-emerald-50 text-emerald-800 px-3 py-1 rounded-full text-xs font-bold border border-emerald-200">
                     <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
                     <span>Disponible cette semaine</span>
@@ -843,18 +943,7 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({
                 )}
               </div>
 
-              {/* Bouton RDV proéminent */}
-              <div className="space-y-2">
-                <button
-                  onClick={() => triggerRdv()}
-                  className="w-full py-3 bg-[#603A2A] text-white hover:bg-[#603A2A]/90 transition-all font-bold rounded-lg shadow text-center block text-sm uppercase tracking-wider"
-                >
-                  📅 Demander un Devis / RDV
-                </button>
-                <p className="text-[10px] text-[#8E887F] text-center">
-                  Réponse habituelle sous 2 heures par SMS
-                </p>
-              </div>
+
 
               {/* Numéro de téléphone (visible après connexion) */}
               <div className="pt-2 border-t border-[#F5EDE0]">
@@ -874,16 +963,10 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({
                     </button>
                   </div>
                 ) : (
-                  <div className="bg-[#F5EDE0] p-2.5 rounded-lg flex items-center justify-between text-xs border border-[#CDB58E]/40">
+                  <div className="bg-[#F5EDE0] p-2.5 rounded-lg flex items-center justify-center text-xs border border-[#CDB58E]/40">
                     <span className="font-mono font-bold text-[#603A2A] text-sm tracking-wide">
                       {artisan.phone}
                     </span>
-                    <a 
-                      href={`tel:${artisan.phone}`}
-                      className="text-[10px] bg-[#603A2A] text-white px-2 py-1 rounded hover:bg-[#603A2A]/80 font-medium"
-                    >
-                      Appeler
-                    </a>
                   </div>
                 )}
               </div>
@@ -1077,6 +1160,14 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({
         </div>
       )}
 
+    {/* Auth Alert Modal */}
+    <AuthAlertModal 
+      isOpen={showAuthAlert} 
+      onClose={() => setShowAuthAlert(false)} 
+      onLoginClick={() => {
+        if (onRequireRegistration) onRequireRegistration();
+      }} 
+    />
     </div>
   );
 };

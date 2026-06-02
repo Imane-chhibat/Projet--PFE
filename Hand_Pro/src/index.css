@@ -74,3 +74,10 @@ body {
   0% { transform: translateX(0%); }
   100% { transform: translateX(-50%); }
 }
+
+/* Hide native password reveal eye in browsers (like Edge) */
+input[type="password"]::-ms-reveal,
+input[type="password"]::-ms-clear {
+  display: none;
+}
+

@@ -10,6 +10,7 @@ use App\Http\Controllers\Api\TestimonialController;
 use App\Http\Controllers\Api\ClientRequestController;
 use App\Http\Controllers\Api\ClientProfileController;
 use App\Http\Controllers\Api\AdminController;
+use App\Http\Controllers\Api\CommentController;
 
 /*
 |--------------------------------------------------------------------------
@@ -23,6 +24,8 @@ Route::get('/artisans',      [ArtisanController::class,     'index']);
 Route::get('/artisans/{id}', [ArtisanController::class,     'show']);
 Route::get('/announcements', [AnnouncementController::class,'index']);
 Route::get('/testimonials',  [TestimonialController::class, 'index']);
+Route::get('/comments',      [CommentController::class,     'index']);
+Route::get('/comments/all',  [CommentController::class,     'all']);
 Route::get('/cities',        [CategoryController::class,    'cities']); // Using CategoryController for now or maybe a DataController
 Route::get('/statistics',    [ArtisanController::class,     'statistics']);
 Route::get('/debug/admin',   [AuthController::class,         'debugAdmin']);
@@ -42,6 +45,7 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::post('/logout', [AuthController::class, 'logout']);
     Route::put('/change-password', [AuthController::class, 'changePassword']);
     Route::post('/artisans/{id}/reviews', [ArtisanController::class, 'addReview']);
+    Route::post('/comments', [CommentController::class, 'store']);
 
     // ── Mon Profil Artisan ──
     Route::get('/my-profile',  [ArtisanController::class, 'myProfile']);
@@ -53,9 +57,11 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::post('/requests', [ClientRequestController::class, 'store']);
     Route::get('/artisan/requests', [ClientRequestController::class, 'indexArtisan']);
     Route::get('/client/requests', [ClientRequestController::class, 'indexClient']);
+    Route::get('/artisan/notifications', [ClientRequestController::class, 'notifications']);
     Route::put('/artisan/requests/mark-read', [ClientRequestController::class, 'markAsRead']);
     Route::put('/requests/{id}/accept', [ClientRequestController::class, 'accept']);
     Route::put('/requests/{id}/reject', [ClientRequestController::class, 'reject']);
+    Route::put('/requests/{id}/cancel', [ClientRequestController::class, 'cancel']);
 
     // ── Profil Client ──
     Route::get('/client/profile', [ClientProfileController::class, 'getProfile']);
@@ -63,6 +69,11 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::get('/client/favorites', [ClientProfileController::class, 'getFavorites']);
     Route::post('/client/favorites', [ClientProfileController::class, 'addFavorite']);
     Route::delete('/client/favorites/{artisanId}', [ClientProfileController::class, 'removeFavorite']);
+
+    Route::get('/client/reviews', [ClientProfileController::class, 'getMyReviews']);
+    Route::delete('/client/reviews/{id}', [ClientProfileController::class, 'deleteMyReview']);
+    Route::get('/client/comments', [ClientProfileController::class, 'getMyComments']);
+    Route::delete('/client/comments/{id}', [ClientProfileController::class, 'deleteMyComment']);
 
     // ── Admin Dashboard ──
     Route::get('/admin/stats', [AdminController::class, 'getStats']);

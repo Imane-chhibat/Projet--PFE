@@ -6,7 +6,7 @@ import { ArrowRight } from "lucide-react";
 interface DestinationCardProps extends React.HTMLAttributes<HTMLDivElement> {
   imageUrl: string;
   location: string;
-  flag: string;
+  flag: React.ReactNode;
   stats: string;
   href?: string;
   themeColor: string; // e.g., "150 50% 25%" for a deep green

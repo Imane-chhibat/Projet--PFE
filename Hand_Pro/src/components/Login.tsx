@@ -35,6 +35,7 @@ interface PupilProps {
 interface LoginProps {
   onLogin?: () => void;
   onForgotPassword?: () => void;
+  onNavigateToChoix?: () => void;
 }
 
 /* ── EyeBall ─────────────────────────────────────────── */
@@ -159,7 +160,11 @@ function Pupil({
 }
 
 /* ── Main Login ───────────────────────────────────────── */
-export default function Login({ onLogin, onForgotPassword }: LoginProps) {
+export default function Login({
+  onLogin,
+  onForgotPassword,
+  onNavigateToChoix,
+}: LoginProps) {
   const [email, setEmail] = useState<string>("");
   const [password, setPassword] = useState<string>("");
   const [showPassword, setShowPassword] = useState<boolean>(false);
@@ -1164,12 +1169,12 @@ export default function Login({ onLogin, onForgotPassword }: LoginProps) {
             }}
           >
             Pas encore de compte ?{" "}
-            <a
-              href="#"
-              style={{ color: "#C6A75E", fontWeight: 700, textDecoration: "none" }}
+            <button
+              onClick={(e) => { e.preventDefault(); if (onNavigateToChoix) onNavigateToChoix(); }}
+              style={{ color: "#C6A75E", fontWeight: 700, background: "none", border: "none", padding: 0, cursor: "pointer", font: "inherit", textDecoration: "none" }}
             >
               Créer un compte
-            </a>
+            </button>
           </p>
         </div>
       </div>

@@ -143,4 +143,83 @@ class ClientProfileController extends Controller
 
         return response()->json(['message' => 'Removed from favorites']);
     }
+
+    /**
+     * Get client's reviews left on artisan profiles.
+     */
+    public function getMyReviews(Request $request)
+    {
+        $user = $request->user();
+        $reviews = \App\Models\Review::where('user_id', $user->id)->with('artisanProfile.user')->get();
+
+        $transformed = $reviews->map(function ($review) {
+            return [
+                'id' => $review->id,
+                'artisan' => [
+                    'id' => $review->artisanProfile->id ?? null,
+                    'name' => $review->artisanProfile->user->name ?? 'Unknown',
+                    'avatar' => $review->artisanProfile->avatar ?? null,
+                ],
+                'rating' => $review->rating,
+                'comment' => $review->comment,
+                'created_at' => $review->created_at,
+            ];
+        });
+
+        return response()->json(['reviews' => $transformed]);
+    }
+
+    /**
+     * Delete a client's review.
+     */
+    public function deleteMyReview(Request $request, $id)
+    {
+        $user = $request->user();
+        $review = \App\Models\Review::where('user_id', $user->id)->where('id', $id)->first();
+
+        if (!$review) {
+            return response()->json(['message' => 'Review not found'], 404);
+        }
+
+        $artisanProfile = $review->artisanProfile;
+
+        $review->delete();
+
+        // Update artisan's rating and review count
+        if ($artisanProfile) {
+            $artisanProfile->decrement('review_count');
+            $artisanProfile->rating = $artisanProfile->reviews()->avg('rating') ?? 0;
+            $artisanProfile->save();
+        }
+
+        return response()->json(['message' => 'Review deleted successfully']);
+    }
+
+    /**
+     * Get client's site comments (testimonials).
+     */
+    public function getMyComments(Request $request)
+    {
+        $user = $request->user();
+        $comments = \App\Models\Comment::where('user_id', $user->id)->orderBy('created_at', 'desc')->get();
+
+        return response()->json(['comments' => $comments]);
+    }
+
+    /**
+     * Delete a client's site comment.
+     */
+    public function deleteMyComment(Request $request, $id)
+    {
+        $user = $request->user();
+        $comment = \App\Models\Comment::where('user_id', $user->id)->where('id', $id)->first();
+
+        if (!$comment) {
+            return response()->json(['message' => 'Comment not found'], 404);
+        }
+
+        $comment->delete();
+
+        return response()->json(['message' => 'Comment deleted successfully']);
+    }
 }

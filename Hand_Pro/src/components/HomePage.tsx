@@ -21,13 +21,16 @@ import {
   MessageSquareHeart,
   UserCheck,
   Building,
-  Calendar
+  Calendar,
+  Trash2
 } from 'lucide-react';
 import { api } from '../utils/api';
-// Remove mock data import completely
+import { AuthAlertModal } from './AuthAlertModal';
 
 // --- Sub-Components for Testimonials ---
 interface PremiumTestimonial {
+  id?: number;
+  user_id?: number;
   text: string;
   image: string;
   name: string;
@@ -99,12 +102,17 @@ const TestimonialsColumn = (props: {
   className?: string;
   testimonials: PremiumTestimonial[];
   duration?: number;
+  paused?: boolean;
+  onPause?: () => void;
+  onResume?: () => void;
+  onDelete?: (id: number) => void;
+  currentUserId?: number;
 }) => {
   return (
     <div className={props.className}>
       <motion.ul
         animate={{
-          translateY: "-50%",
+          translateY: props.paused ? undefined : "-50%",
         }}
         transition={{
           duration: props.duration || 10,
@@ -112,25 +120,28 @@ const TestimonialsColumn = (props: {
           ease: "linear",
           repeatType: "loop",
         }}
+        style={{ willChange: 'transform' }}
         className="flex flex-col gap-6 pb-6 bg-transparent transition-colors duration-300 list-none m-0 p-0"
       >
         {[
           ...new Array(2).fill(0).map((_, index) => (
             <React.Fragment key={index}>
-              {props.testimonials.map(({ text, image, name, role }, i) => (
+              {props.testimonials.map(({ id, user_id, text, image, name, role }, i) => (
                 <motion.li 
                   key={`${index}-${i}`}
                   aria-hidden={index === 1 ? "true" : "false"}
                   tabIndex={index === 1 ? -1 : 0}
+                  onMouseEnter={() => props.onPause?.()}
+                  onMouseLeave={() => props.onResume?.()}
                   whileHover={{ 
                     scale: 1.03,
-                    y: -8,
+                    y: -4,
                     boxShadow: "0 20px 40px -10px rgba(96, 58, 42, 0.15), 0 10px 10px -5px rgba(96, 58, 42, 0.05), 0 0 0 1px rgba(205, 181, 142, 0.2)",
                     transition: { type: "spring", stiffness: 400, damping: 17 }
                   }}
                   whileFocus={{ 
                     scale: 1.03,
-                    y: -8,
+                    y: -4,
                     boxShadow: "0 20px 40px -10px rgba(96, 58, 42, 0.15), 0 10px 10px -5px rgba(96, 58, 42, 0.05), 0 0 0 1px rgba(205, 181, 142, 0.2)",
                     transition: { type: "spring", stiffness: 400, damping: 17 }
                   }}
@@ -152,10 +163,16 @@ const TestimonialsColumn = (props: {
                         <cite className="font-sans font-bold text-xs text-[#2A1B15] not-italic leading-none">
                           {name}
                         </cite>
-                        <span className="text-[10px] text-[#603A2A] font-semibold mt-1">
-                          Client vérifié • {role}
-                        </span>
                       </div>
+                      {props.currentUserId && user_id && props.currentUserId === user_id && props.onDelete && id && (
+                        <button
+                          onClick={() => props.onDelete!(id)}
+                          className="ml-auto text-rose-400 hover:text-rose-600 transition-colors p-1"
+                          title="Supprimer mon commentaire"
+                        >
+                          <Trash2 size={16} />
+                        </button>
+                      )}
                     </footer>
                   </blockquote>
                 </motion.li>
@@ -189,9 +206,21 @@ export const HomePage = ({
   const [categories, setCategories] = useState<any[]>([]);
   const [artisans, setArtisans] = useState<any[]>([]);
   const [announcements, setAnnouncements] = useState<any[]>([]);
-  const [showAllAnnouncements, setShowAllAnnouncements] = useState(false);
-  const [statistics, setStatistics] = useState({ artisans: '...', cities: '...', rating: '...' });
+  const [announcementIndex, setAnnouncementIndex] = useState(0);
+  const [statistics, setStatistics] = useState<{ artisans: number; cities: number; rating: number }>({ artisans: 0, cities: 0, rating: 0 });
+  // State for comment form
   const [loading, setLoading] = useState(true);
+  const [author, setAuthor] = useState('');
+  const [body, setBody] = useState('');
+  // Optional: store fetched comments (not displayed yet)
+  const [comments, setComments] = useState<any[]>([]);
+  const [showAll, setShowAll] = useState(false);
+  const [showAuthModal, setShowAuthModal] = useState(false);
+  const [commentToDelete, setCommentToDelete] = useState<number | null>(null);
+  const [testimonialsPaused, setTestimonialsPaused] = useState(false);
+
+  const currentUser = JSON.parse(localStorage.getItem('auth_user') || '{}');
+
 
   useEffect(() => {
     const fetchData = async () => {
@@ -208,6 +237,9 @@ export const HomePage = ({
         setArtisans(artisansData);
         setAnnouncements(announcementsData);
         setStatistics(statsData);
+        // Load latest 20 comments
+        const commentsData = await api.getComments();
+        setComments(commentsData);
       } catch (error) {
         console.error("Error fetching homepage data:", error);
       } finally {
@@ -222,16 +254,35 @@ export const HomePage = ({
     onSearch(selectedCity, selectedSpecialty);
   };
 
-  const handleApply = async (id: string) => {
-    try {
-      // Extract numeric ID from formatted announcement ID (e.g. "ann-2" → 2)
-      const numericId = id.replace('ann-', '');
-      await api.applyToAnnouncement(numericId);
-      setAppliedAnnouncements([...appliedAnnouncements, id]);
-      alert("Candidature envoyée avec succès");
-    } catch (err: any) {
-      alert(err.message || "Erreur lors de la candidature");
+  const handleCommentSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!localStorage.getItem('auth_token')) {
+      setShowAuthModal(true);
+      return;
     }
+    try {
+      const newComment = await api.postComment({ body });
+      // prepend new comment to list (if you later display them)
+      setComments(prev => [newComment, ...prev]);
+    } catch (err) {
+      console.error('Error posting comment', err);
+    }
+    setBody('');
+  };
+
+  const confirmDeleteComment = async () => {
+    if (!commentToDelete) return;
+    try {
+      await api.deleteClientComment(commentToDelete);
+      setComments(comments.filter(c => c.id !== commentToDelete));
+      setCommentToDelete(null);
+    } catch (err) {
+      console.error("Erreur lors de la suppression:", err);
+    }
+  };
+
+  const handleApply = (id: string) => {
+    setAppliedAnnouncements(prev => [...prev, id]);
   };
 
   // Helper to render Category Icon dynamically
@@ -349,6 +400,8 @@ export const HomePage = ({
 
     handleMouseLeave(); // Resume auto-scroll after 1 second delay
   };
+
+  if (loading) { return <div className="flex justify-center items-center h-screen"><span className="text-[#603A2A]">Chargement...</span></div>; }
 
   return (
     <div className="w-full animate-fadeIn">
@@ -767,18 +820,27 @@ export const HomePage = ({
               </p>
             </div>
 
-            <button
-              onClick={() => setShowAllAnnouncements(!showAllAnnouncements)}
-              className="px-6 py-2 bg-[#2A1B15] text-[#CDB58E] hover:bg-[#2A1B15]/90 rounded-full text-xs font-bold shrink-0 flex items-center gap-2 transition-all shadow-md hover:shadow-lg"
-            >
-              <span>{showAllAnnouncements ? "Voir moins d'annonces" : "Voir toutes les annonces"}</span>
-              {showAllAnnouncements ? <ChevronLeft size={14} /> : <ChevronRight size={14} />}
-            </button>
+            <div className="flex items-center gap-2">
+              <button
+                onClick={() => setAnnouncementIndex(Math.max(0, announcementIndex - 1))}
+                disabled={announcementIndex === 0}
+                className="w-10 h-10 bg-[#2A1B15] text-[#CDB58E] hover:bg-[#2A1B15]/90 disabled:opacity-50 disabled:cursor-not-allowed rounded-full flex items-center justify-center transition-all shadow-md hover:shadow-lg"
+              >
+                <ChevronLeft size={18} />
+              </button>
+              <button
+                onClick={() => setAnnouncementIndex(Math.min(announcements.length - 3, announcementIndex + 1))}
+                disabled={announcements.length <= 3 || announcementIndex >= announcements.length - 3}
+                className="w-10 h-10 bg-[#2A1B15] text-[#CDB58E] hover:bg-[#2A1B15]/90 disabled:opacity-50 disabled:cursor-not-allowed rounded-full flex items-center justify-center transition-all shadow-md hover:shadow-lg"
+              >
+                <ChevronRight size={18} />
+              </button>
+            </div>
           </div>
 
           {/* Cartes d'annonces (3 en ligne) */}
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            {(showAllAnnouncements ? announcements : announcements.slice(0, 3)).map((ann) => {
+            {announcements.slice(announcementIndex, announcementIndex + 3).map((ann) => {
               const isApplied = appliedAnnouncements.includes(ann.id);
               return (
                 <div
@@ -859,19 +921,122 @@ export const HomePage = ({
           </div>
 
           {/* Grille de colonnes de témoignages défilants */}
-          <div 
-            className="flex justify-center gap-6 mt-10 [mask-image:linear-gradient(to_bottom,transparent,black_10%,black_90%,transparent)] max-h-[640px] overflow-hidden"
-            role="region"
-            aria-label="Témoignages défilants"
-          >
-            <TestimonialsColumn testimonials={firstColumn} duration={15} />
-            <TestimonialsColumn testimonials={secondColumn} className="hidden md:block" duration={19} />
-            <TestimonialsColumn testimonials={thirdColumn} className="hidden lg:block" duration={17} />
-          </div>
+          {(() => {
+            const mappedComments = comments.map(c => ({
+              id: c.id,
+              user_id: c.user_id,
+              text: c.body,
+              name: c.user?.name || c.author || 'Client',
+              role: c.user?.role === 'artisan' ? 'Artisan' : 'Client(e)',
+              image: c.user?.avatar 
+                ? (c.user.avatar.startsWith('http') ? c.user.avatar : `http://localhost:8000/storage/${c.user.avatar}`)
+                : `https://ui-avatars.com/api/?name=${encodeURIComponent(c.user?.name || c.author || 'Client')}&background=random&color=fff`
+            }));
+
+            // On combine les vrais avis avec les avis de démonstration pour garder un design riche et fluide (3 colonnes)
+            const combinedTestimonials = [...mappedComments, ...premiumTestimonials];
+
+            const firstCol = combinedTestimonials.filter((_, i) => i % 3 === 0);
+            const secondCol = combinedTestimonials.filter((_, i) => i % 3 === 1);
+            const thirdCol = combinedTestimonials.filter((_, i) => i % 3 === 2);
+
+
+            return (
+              <div 
+                className="flex justify-center gap-6 mt-10 [mask-image:linear-gradient(to_bottom,transparent,black_10%,black_90%,transparent)] max-h-[420px] overflow-hidden"
+                role="region"
+                aria-label="Témoignages défilants"
+              >
+                <TestimonialsColumn testimonials={firstCol} duration={15} paused={testimonialsPaused} onPause={() => setTestimonialsPaused(true)} onResume={() => setTestimonialsPaused(false)} onDelete={setCommentToDelete} currentUserId={currentUser.id} />
+                <TestimonialsColumn testimonials={secondCol} className="hidden md:block" duration={19} paused={testimonialsPaused} onPause={() => setTestimonialsPaused(true)} onResume={() => setTestimonialsPaused(false)} onDelete={setCommentToDelete} currentUserId={currentUser.id} />
+                <TestimonialsColumn testimonials={thirdCol} className="hidden lg:block" duration={17} paused={testimonialsPaused} onPause={() => setTestimonialsPaused(true)} onResume={() => setTestimonialsPaused(false)} onDelete={setCommentToDelete} currentUserId={currentUser.id} />
+              </div>
+            );
+          })()}
 
         </div>
       </section>
 
+      {/* SECTION 7 : AJOUTER UN AVIS */}
+      <section className="bg-[#F5EDE0] py-16 text-[#2A1B15] border-t border-[#CDB58E]/20 relative">
+        {/* Subtle decorative background */}
+        <div className="absolute inset-0 zellige-pattern opacity-5 pointer-events-none" />
+        
+        <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 relative z-10 text-center">
+          <div className="mb-8">
+            <span className="inline-block px-3 py-1 bg-[#603A2A]/10 border border-[#603A2A]/30 rounded-full text-xs font-badge tracking-wider text-[#603A2A] uppercase mb-4">
+              Votre opinion compte
+            </span>
+            <h2 className="font-display text-3xl sm:text-4xl font-bold text-[#2A1B15] mb-2">
+              Partagez votre avis
+            </h2>
+            <p className="text-sm text-[#603A2A] max-w-2xl mx-auto">
+              Aidez-nous à améliorer continuellement l'expérience HandPro pour tous les utilisateurs.
+            </p>
+          </div>
+
+          <div className="bg-[#CDB58E]/50 backdrop-blur-sm p-6 sm:p-10 rounded-2xl border border-[#CDB58E]/20 shadow-2xl">
+            <form onSubmit={handleCommentSubmit} className="flex flex-col gap-5">
+              <div className="relative">
+                <MessageSquareHeart className="absolute top-4 left-4 text-[#CDB58E]/50" size={20} />
+                <textarea
+                  placeholder="Partagez votre expérience avec HandPro..."
+                  value={body}
+                  onChange={e => setBody(e.target.value)}
+                  rows={4}
+                  className="w-full bg-white text-[#2A1B15] placeholder-[#8E887F] border border-[#603A2A]/30 rounded-xl py-3 pl-12 pr-4 focus:outline-none focus:border-[#603A2A] focus:ring-1 focus:ring-[#603A2A] transition-all resize-none"
+                  required
+                />
+              </div>
+              <button
+                type="submit"
+                className="self-center sm:self-end px-8 py-3 bg-[#603A2A] text-[#F5EDE0] hover:bg-[#CDB58E] hover:text-[#2A1B15] transition-all duration-300 font-bold rounded-full shadow-lg flex items-center gap-2 group"
+              >
+                <span>Ajouter Commentaire</span>
+                <ChevronRight size={18} className="group-hover:translate-x-1 transition-transform" />
+              </button>
+            </form>
+          </div>
+        </div>
+      </section>
+
+      {/* Auth Alert Modal */}
+      <AuthAlertModal 
+        isOpen={showAuthModal} 
+        onClose={() => setShowAuthModal(false)}
+        onLoginClick={() => window.location.href = '/login'}
+      />
+
+      {/* Modal de confirmation de suppression de commentaire site */}
+      {commentToDelete && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-[#2A1B15]/80 backdrop-blur-sm animate-fadeIn">
+          <div className="bg-[#FFFFFF] rounded-2xl p-6 sm:p-8 max-w-sm w-full border border-[#CDB58E]/30 shadow-2xl relative text-center">
+            <div className="w-16 h-16 bg-rose-100 rounded-full flex items-center justify-center mx-auto mb-4 border-4 border-white shadow-sm">
+              <Trash2 className="text-rose-600" size={24} />
+            </div>
+            <h3 className="font-display font-bold text-xl text-[#2A1B15] mb-2">
+              Supprimer le commentaire ?
+            </h3>
+            <p className="text-[#8E887F] text-sm mb-6">
+              Cette action est irréversible. Êtes-vous sûr de vouloir supprimer cet avis du site ?
+            </p>
+            <div className="flex items-center gap-3 w-full">
+              <button
+                onClick={() => setCommentToDelete(null)}
+                className="flex-1 py-2.5 rounded-lg border border-[#8E887F]/30 text-[#8E887F] font-bold text-sm hover:bg-[#F5EDE0] transition-colors"
+              >
+                Annuler
+              </button>
+              <button
+                onClick={confirmDeleteComment}
+                className="flex-1 py-2.5 rounded-lg bg-rose-600 text-white font-bold text-sm hover:bg-rose-700 transition-colors shadow-sm"
+              >
+                Confirmer
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

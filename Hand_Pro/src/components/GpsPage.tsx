@@ -210,11 +210,17 @@ export const GpsPage: React.FC<GpsPageProps> = ({ onSelectArtisan }) => {
                       } ${artisan.isCertified ? 'border-2 border-[#CDB58E]' : 'border border-white/20'
                       }`}
                   >
-                    <img
-                      src={artisan.avatar}
-                      alt={artisan.name}
-                      className="w-10 h-10 rounded-full object-cover object-top"
-                    />
+                    {artisan.avatar ? (
+                      <img
+                        src={artisan.avatar}
+                        alt={artisan.name}
+                        className="w-10 h-10 rounded-full object-cover object-top"
+                      />
+                    ) : (
+                      <div className="w-10 h-10 rounded-full flex items-center justify-center bg-[#F5EDE0] text-[#603A2A] font-display font-bold text-lg border border-white/50">
+                        {artisan.name?.charAt(0).toUpperCase() || "A"}
+                      </div>
+                    )}
 
                     {/* Sceau doré de badge certifié compact superposé */}
                     {artisan.isCertified && (
@@ -239,11 +245,17 @@ export const GpsPage: React.FC<GpsPageProps> = ({ onSelectArtisan }) => {
               <div className="bg-[#FFFFFF] border-2 border-[#CDB58E] rounded-xl p-4 shadow-2xl max-w-md mx-auto animate-scaleUp flex gap-3 items-center justify-between">
 
                 <div className="flex items-center gap-3 w-full overflow-hidden">
-                  <img
-                    src={popupArtisan.avatar}
-                    alt={popupArtisan.name}
-                    className="w-14 h-14 rounded-lg object-cover border border-[#CDB58E] shrink-0 object-top"
-                  />
+                  {popupArtisan.avatar ? (
+                    <img
+                      src={popupArtisan.avatar}
+                      alt={popupArtisan.name}
+                      className="w-14 h-14 rounded-lg object-cover border border-[#CDB58E] shrink-0 object-top"
+                    />
+                  ) : (
+                    <div className="w-14 h-14 rounded-lg flex items-center justify-center bg-[#F5EDE0] text-[#603A2A] font-display font-bold text-2xl border border-[#CDB58E] shrink-0">
+                      {popupArtisan.name?.charAt(0).toUpperCase() || "A"}
+                    </div>
+                  )}
                   <div className="overflow-hidden w-full">
                     <div className="flex items-center gap-1.5">
                       <h4 className="font-display font-bold text-sm text-[#CDB58E] truncate">
@@ -340,7 +352,13 @@ export const GpsPage: React.FC<GpsPageProps> = ({ onSelectArtisan }) => {
                       <div className="flex items-center gap-3">
                         {/* Avatar compact */}
                         <div className="relative w-12 h-12 rounded-full overflow-hidden shrink-0 border border-[#CDB58E]">
-                          <img src={artisan.avatar} alt={artisan.name} className="w-full h-full object-cover object-top" />
+                          {artisan.avatar ? (
+                            <img src={artisan.avatar} alt={artisan.name} className="w-full h-full object-cover object-top" />
+                          ) : (
+                            <div className="w-full h-full flex items-center justify-center bg-[#F5EDE0] text-[#603A2A] font-display font-bold text-xl">
+                              {artisan.name?.charAt(0).toUpperCase() || "A"}
+                            </div>
+                          )}
                         </div>
 
                         {/* Informations */}
@@ -369,9 +387,9 @@ export const GpsPage: React.FC<GpsPageProps> = ({ onSelectArtisan }) => {
                               )}
                             </div>
 
-                            <span className={`text-[9px] px-1.5 py-0.2 rounded ${artisan.availability === 'available' ? 'text-emerald-400' : 'text-amber-400'
+                            <span className={`text-[9px] px-1.5 py-0.2 rounded ${artisan.availability !== 'busy' ? 'text-emerald-400' : 'text-amber-400'
                               }`}>
-                              {artisan.availability === 'available' ? '● Dispo' : 'Occupé'}
+                              {artisan.availability !== 'busy' ? '● Dispo' : 'Occupé'}
                             </span>
                           </div>
                         </div>

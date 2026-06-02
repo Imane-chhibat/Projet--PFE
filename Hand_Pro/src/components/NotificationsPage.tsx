@@ -3,26 +3,45 @@ import { api } from '../utils/api';
 import { ArrowLeft } from 'lucide-react';
 
 export const NotificationsPage = () => {
-  const [activeTab, setActiveTab] = useState<'notifications' | 'upcoming' | 'history'>('notifications');
+  const [activeTab, setActiveTab] = useState<'notifications' | 'pending' | 'upcoming' | 'history'>('notifications');
+  const [notifications, setNotifications] = useState<any[]>([]);
   const [pending, setPending] = useState<any[]>([]);
   const [upcoming, setUpcoming] = useState<any[]>([]);
   const [history, setHistory] = useState<any[]>([]);
 
   // Load data once – you can replace with real endpoints later
   useEffect(() => {
-    // Pending client requests (new notifications)
-    api.getArtisanRequests().then(setPending).catch(console.error);
+    // Custom notifications
+    api.getArtisanNotifications().then((res: any) => setNotifications(res.notifications || [])).catch(console.error);
+    // Pending client requests
+    api.getArtisanRequests().then((res: any) => setPending(res.requests?.filter((r: any) => r.status === 'pending') || [])).catch(console.error);
     // Accepted requests (upcoming appointments)
-    api.getArtisanRequests().then((all: any[]) => {
+    api.getArtisanRequests().then((res: any) => {
+      const all = res.requests || [];
       const now = new Date();
-      setUpcoming(all.filter(r => r.status === 'accepted' && new Date(r.requested_date) >= now));
-      setHistory(all.filter(r => r.status === 'accepted' && new Date(r.requested_date) < now));
+      setUpcoming(all.filter((r: any) => r.status === 'accepted' && new Date(r.requested_date) >= now));
+      setHistory(all.filter((r: any) => r.status === 'accepted' && new Date(r.requested_date) < now));
     }).catch(console.error);
   }, []);
 
   const renderContent = () => {
     switch (activeTab) {
       case 'notifications':
+        return (
+          <div className="space-y-4">
+            {notifications.length === 0 ? (
+              <p className="text-[#8E887F]">Aucune notification.</p>
+            ) : (
+              notifications.map(notif => (
+                <div key={notif.id} className="p-4 bg-[#F5EDE0]/30 rounded-lg border border-[#CDB58E]/20">
+                  <p className="font-bold text-[#603A2A]">{notif.title}</p>
+                  <p className="text-sm text-[#8E887F]">{notif.body}</p>
+                </div>
+              ))
+            )}
+          </div>
+        );
+      case 'pending':
         return (
           <div className="space-y-4">
             {pending.length === 0 ? (
@@ -95,6 +114,12 @@ export const NotificationsPage = () => {
               className={`flex items-center gap-2 px-4 py-2 text-left ${activeTab === 'notifications' ? 'bg-[#603A2A] text-[#F5EDE0]' : 'text-[#8E887F] hover:bg-[#603A2A]/50'}`}
             >
               🔔 Notifications
+            </button>
+            <button
+              onClick={() => setActiveTab('pending')}
+              className={`flex items-center gap-2 px-4 py-2 text-left ${activeTab === 'pending' ? 'bg-[#603A2A] text-[#F5EDE0]' : 'text-[#8E887F] hover:bg-[#603A2A]/50'}`}
+            >
+              ⏳ Demandes en attente
             </button>
             <button
               onClick={() => setActiveTab('upcoming')}

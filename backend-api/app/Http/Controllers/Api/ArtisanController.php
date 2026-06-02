@@ -76,6 +76,7 @@ class ArtisanController extends Controller
 
         $review = Review::create([
             'artisan_profile_id' => $profile->id,
+            'user_id'            => auth()->id(),
             'client_name'        => $validated['clientName'],
             'client_avatar'      => $validated['clientAvatar'] ?? null,
             'comment'            => $validated['comment'],
@@ -96,6 +97,7 @@ class ArtisanController extends Controller
                 'date'         => 'À l\'instant',
                 'comment'      => $review->comment,
                 'rating'       => $review->rating,
+                'user_id'      => $review->user_id,
             ],
         ], 201);
     }
@@ -355,6 +357,7 @@ class ArtisanController extends Controller
                 'date'         => $r->created_at?->diffForHumans() ?? '',
                 'comment'      => $r->comment,
                 'rating'       => (int) $r->rating,
+                'user_id'      => $r->user_id,
             ])->toArray(),
             'lat'             => (float) $p->lat,
             'lng'             => (float) $p->lng,
