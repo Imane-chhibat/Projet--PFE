@@ -1,16 +1,26 @@
 <?php
-
 namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
-use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class Announcement extends Model
 {
-    protected $fillable = ['title', 'company', 'category', 'city', 'date', 'description'];
+    protected $table = 'announcements';
 
-    public function applications(): HasMany
-    {
-        return $this->hasMany(Application::class);
-    }
+    protected $fillable = [
+        'company_name',
+        'category',
+        'title',
+        'description',
+        'contact_email',
+        'contact_phone',
+        'contact_address',
+        'website',
+        'city',
+        'expires_at',
+    ];
+
+    protected $casts = [
+        'expires_at' => 'datetime',
+    ];
 }

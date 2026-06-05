@@ -22,7 +22,6 @@ export const Navbar = ({
   const [avatar, setAvatar] = useState<string | null>(null);
   const [userName, setUserName] = useState<string | null>(null);
   const [notifications, setNotifications] = useState<any[]>([]);
-  const [showNotifications, setShowNotifications] = useState(false);
   const [showAuthAlert, setShowAuthAlert] = useState(false);
 
   useEffect(() => {
@@ -66,32 +65,7 @@ export const Navbar = ({
     return () => window.removeEventListener('profileUpdated', handleProfileUpdate);
   }, [userType, activePage]);
 
-  const handleOpenNotifications = async () => {
-    setShowNotifications(true);
-    if (notifications.some(n => !n.is_read)) {
-      try {
-        await api.markRequestsAsRead();
-        setNotifications(notifications.map(n => ({ ...n, is_read: true })));
-      } catch (err) {
-        console.error(err);
-      }
-    }
-  };
 
-  const handleAcceptRequest = async (id: number) => {
-    try {
-      const res = await api.acceptClientRequest(id);
-      setNotifications(notifications.map(n => n.id === id ? { ...n, status: 'accepted' } : n));
-      const clientPhone = res.request?.client?.phone || "";
-      if (clientPhone) {
-        window.open(`https://wa.me/${clientPhone}`, '_blank');
-      } else {
-        alert("Demande acceptée !");
-      }
-    } catch (err: any) {
-      alert(err.message || "Erreur lors de la validation");
-    }
-  };
 
   return (
     <>
@@ -233,12 +207,7 @@ export const Navbar = ({
                   >
                     <span>Aller au Profil</span>
                   </button>
-                  <button 
-                    onClick={handleOpenNotifications}
-                    className="w-full text-left px-4 py-3 text-sm text-[#2A1B15] hover:bg-[#F5EDE0] flex items-center justify-between transition-colors border-b border-[#F5EDE0]"
-                  >
-                    <span>Notifications</span>
-                  </button>
+
                   <button 
                     onClick={() => {
                       setActivePage('change_password');
@@ -371,58 +340,6 @@ export const Navbar = ({
 
       </div>
 
-      {/* Notifications Modal */}
-      {showNotifications && (
-        <div className="fixed inset-0 z-[100] bg-[#2A1B15]/80 backdrop-blur-xs flex items-center justify-center p-4 animate-fadeIn">
-          <div className="bg-white rounded-xl max-w-2xl w-full max-h-[80vh] overflow-hidden flex flex-col text-[#2A1B15] shadow-2xl border-2 border-[#CDB58E] relative">
-            <div className="p-4 border-b border-[#F5EDE0] flex justify-between items-center bg-[#F5EDE0]/30">
-              <h3 className="font-display font-bold text-xl text-[#2A1B15]">Mes Notifications</h3>
-              <button
-                onClick={() => setShowNotifications(false)}
-                className="text-gray-400 hover:text-gray-700"
-              >
-                <X size={20} />
-              </button>
-            </div>
-            
-            <div className="flex-1 overflow-y-auto p-6 space-y-4">
-              {notifications.length === 0 ? (
-                <div className="text-center py-8 text-[#8E887F]">
-                  <p>Aucune notification pour le moment.</p>
-                </div>
-              ) : (
-                notifications.map((notif: any) => (
-                  <div key={notif.id} className="bg-white rounded-xl p-4 border border-[#CDB58E]/40 shadow-sm flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
-                    <div>
-                      <div className="flex items-center gap-2 mb-1">
-                        <span className="font-bold text-[#603A2A]">{notif.client?.name || "Client"}</span>
-                        {notif.status === 'pending' && <span className="bg-amber-100 text-amber-800 text-[10px] font-bold px-2 py-0.5 rounded-full">Nouveau</span>}
-                        {notif.status === 'accepted' && <span className="bg-emerald-100 text-emerald-800 text-[10px] font-bold px-2 py-0.5 rounded-full">Accepté</span>}
-                      </div>
-                      <p className="text-xs text-[#8E887F]">
-                        Souhaite un rendez-vous le : <strong className="text-[#2A1B15]">{notif.requested_date}</strong>
-                      </p>
-                      {notif.client?.phone && notif.status === 'accepted' && (
-                        <p className="text-xs mt-1">
-                          📞 <a href={`tel:${notif.client.phone}`} className="text-[#603A2A] hover:underline font-bold">{notif.client.phone}</a>
-                        </p>
-                      )}
-                    </div>
-                    {notif.status === 'pending' && (
-                      <button 
-                        onClick={() => handleAcceptRequest(notif.id)}
-                        className="w-full sm:w-auto px-4 py-2 bg-[#603A2A] text-white hover:bg-[#603A2A]/90 transition-all font-bold rounded text-xs uppercase tracking-wider"
-                      >
-                        Valider
-                      </button>
-                    )}
-                  </div>
-                ))
-              )}
-            </div>
-          </div>
-        </div>
-      )}
 
       <style>{`
         @keyframes fadeIn {

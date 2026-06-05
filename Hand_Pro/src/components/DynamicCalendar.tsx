@@ -1,179 +1,219 @@
-import { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { ChevronLeft, ChevronRight } from 'lucide-react';
 
 interface DynamicCalendarProps {
-  busyDates?: string[]; // Array of date strings in YYYY-MM-DD format
-  onDateClick?: (date: Date) => void;
+  busyDates?: string[];
+  pendingDates?: string[];
   editable?: boolean;
   selectedDates?: Date[];
+  onDateClick?: (date: Date) => void;
+  selectionMode?: boolean;
+  onSelectDate?: (date: Date) => void;
+  selectedDate?: Date | null;
 }
 
-export default function DynamicCalendar({ 
-  busyDates = [], 
-  onDateClick, 
+const DynamicCalendar: React.FC<DynamicCalendarProps> = ({
+  busyDates = [],
+  pendingDates = [],
   editable = false,
-  selectedDates = []
-}: DynamicCalendarProps) {
-  const [currentDate, setCurrentDate] = useState(new Date());
-  const [calendarDays, setCalendarDays] = useState<Date[]>([]);
+  selectedDates = [],
+  onDateClick,
+  selectionMode = false,
+  onSelectDate,
+  selectedDate = null,
+}) => {
+  const [currentMonth, setCurrentMonth] = useState(new Date());
 
-  useEffect(() => {
-    generateCalendarDays();
-  }, [currentDate]);
+  const getDaysInMonth = (date: Date) => {
+    return new Date(date.getFullYear(), date.getMonth() + 1, 0).getDate();
+  };
 
-  const generateCalendarDays = () => {
-    const year = currentDate.getFullYear();
-    const month = currentDate.getMonth();
-    
-    // First day of the month
-    const firstDay = new Date(year, month, 1);
-    // Last day of the month
-    const lastDay = new Date(year, month + 1, 0);
-    
-    // Get the day of the week for the first day (0 = Sunday, 1 = Monday, etc.)
-    // Adjust to make Monday the first day (0 = Monday, 6 = Sunday)
-    let startDay = firstDay.getDay();
-    startDay = startDay === 0 ? 6 : startDay - 1;
-    
-    const days: Date[] = [];
-    
-    // Add empty days for the offset
-    for (let i = 0; i < startDay; i++) {
-      days.push(new Date(year, month, -startDay + i + 1));
+  const getFirstDayOfMonth = (date: Date) => {
+    const day = new Date(date.getFullYear(), date.getMonth(), 1).getDay();
+    return day === 0 ? 6 : day - 1; // Convert Sunday=0 to 6, Monday=1 to 0
+  };
+
+  const nextMonth = () => {
+    setCurrentMonth(new Date(currentMonth.getFullYear(), currentMonth.getMonth() + 1, 1));
+  };
+
+  const prevMonth = () => {
+    setCurrentMonth(new Date(currentMonth.getFullYear(), currentMonth.getMonth() - 1, 1));
+  };
+
+  // Prevent timezone issues by setting time to noon for ISO string
+  const getISODate = (date: Date): string => {
+    const d = new Date(date.getFullYear(), date.getMonth(), date.getDate(), 12);
+    return d.toISOString().split('T')[0];
+  };
+
+  const isBlocked = (date: Date): boolean => {
+    const iso = getISODate(date);
+    return busyDates.includes(iso);
+  };
+
+  const isPending = (date: Date): boolean => {
+    const iso = getISODate(date);
+    return pendingDates.includes(iso);
+  };
+
+  const isPast = (date: Date): boolean => {
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    return date < today;
+  };
+
+  const isSelected = (date: Date): boolean => {
+    if (selectionMode && selectedDate) {
+      return date.toDateString() === selectedDate.toDateString();
     }
-    
-    // Add all days of the month
-    for (let day = 1; day <= lastDay.getDate(); day++) {
-      days.push(new Date(year, month, day));
+    if (editable && selectedDates) {
+      return selectedDates.some((d) => d.toDateString() === date.toDateString());
     }
-    
-    // Add days from next month to complete the grid (optional)
-    const remainingDays = 42 - days.length; // 6 rows x 7 days
-    for (let day = 1; day <= remainingDays; day++) {
-      days.push(new Date(year, month + 1, day));
-    }
-    
-    setCalendarDays(days);
+    return false;
   };
 
-  const isBusy = (date: Date) => {
-    const dateStr = date.toISOString().split('T')[0];
-    return busyDates.includes(dateStr);
+  const isToday = (date: Date): boolean => {
+    const today = new Date();
+    return date.toDateString() === today.toDateString();
   };
 
-  const isSelected = (date: Date) => {
-    return selectedDates.some(d => 
-      d.toDateString() === date.toDateString()
-    );
-  };
+  const handleDayClick = (date: Date) => {
+    if (isPast(date)) return;
 
-  const isCurrentMonth = (date: Date) => {
-    return date.getMonth() === currentDate.getMonth();
-  };
-
-  const handlePreviousMonth = () => {
-    setCurrentDate(new Date(currentDate.getFullYear(), currentDate.getMonth() - 1, 1));
-  };
-
-  const handleNextMonth = () => {
-    setCurrentDate(new Date(currentDate.getFullYear(), currentDate.getMonth() + 1, 1));
-  };
-
-  const handleDateClick = (date: Date) => {
-    if (!editable || !isCurrentMonth(date) || isBusy(date)) return;
-    if (onDateClick) {
-      onDateClick(date);
+    if (selectionMode) {
+      if (isBlocked(date) || isPending(date)) return;
+      if (onSelectDate) onSelectDate(date);
+    } else if (editable) {
+      if (onDateClick) onDateClick(date);
     }
   };
 
-  const monthNames = [
-    'Janvier', 'Février', 'Mars', 'Avril', 'Mai', 'Juin',
-    'Juillet', 'Août', 'Septembre', 'Octobre', 'Novembre', 'Décembre'
-  ];
+  const renderCells = () => {
+    const daysInMonth = getDaysInMonth(currentMonth);
+    const firstDay = getFirstDayOfMonth(currentMonth);
+    const cells = [];
+    const totalCells = 42; // 6 rows * 7 days
 
-  const dayNames = ['Lun', 'Mar', 'Mer', 'Jeu', 'Ven', 'Sam', 'Dim'];
+    for (let i = 0; i < totalCells; i++) {
+      if (i < firstDay || i >= firstDay + daysInMonth) {
+        // Empty cell
+        cells.push(<div key={`empty-${i}`} className="w-9 h-9 invisible"></div>);
+      } else {
+        const dayNumber = i - firstDay + 1;
+        const date = new Date(currentMonth.getFullYear(), currentMonth.getMonth(), dayNumber);
+        
+        const past = isPast(date);
+        const blocked = isBlocked(date);
+        const pending = isPending(date);
+        const selected = isSelected(date);
+        const today = isToday(date);
+
+        // Determine classes based on state and mode
+        let cellClasses = "w-9 h-9 rounded-lg text-xs flex items-center justify-center transition-all border border-transparent ";
+        let dot = null;
+
+        if (past) {
+          cellClasses += "text-gray-300 cursor-not-allowed bg-gray-50 ";
+        } else if (blocked && (!editable || !selected)) { 
+          cellClasses += "bg-red-50 text-red-500 cursor-not-allowed border-red-200 relative ";
+          dot = <span className="absolute top-1 right-1 w-1.5 h-1.5 bg-red-500 rounded-full"></span>;
+        } else if (pending && (!editable || !selected)) {
+          cellClasses += "bg-yellow-50 text-yellow-600 cursor-not-allowed border-yellow-300 relative ";
+          dot = <span className="absolute top-1 right-1 w-1.5 h-1.5 bg-yellow-400 rounded-full"></span>;
+        } else if (selected && selectionMode) {
+          cellClasses += "bg-[#603A2A] text-white font-bold ring-2 ring-[#CDB58E] ";
+        } else if (selected && editable) {
+          cellClasses += "bg-orange-100 text-orange-700 border-orange-300 ";
+        } else if (selectionMode) {
+          cellClasses += "hover:bg-emerald-50 hover:text-emerald-800 hover:border-emerald-200 cursor-pointer ";
+        } else if (editable) {
+          cellClasses += "hover:bg-[#F5EDE0] cursor-pointer ";
+        }
+
+        if (today) {
+          cellClasses += "underline font-bold text-[#603A2A] ";
+        }
+
+        const title = blocked ? "Jour occupé" : pending ? "En attente" : "";
+
+        cells.push(
+          <div
+            key={dayNumber}
+            className={cellClasses}
+            onClick={() => handleDayClick(date)}
+            title={title}
+          >
+            {dayNumber}
+            {dot}
+          </div>
+        );
+      }
+    }
+    return cells;
+  };
+
+  const monthYearString = currentMonth.toLocaleDateString('fr-FR', { month: 'long', year: 'numeric' });
+  const capitalizedMonthYear = monthYearString.charAt(0).toUpperCase() + monthYearString.slice(1);
 
   return (
-    <div className="bg-white rounded-xl p-6 shadow-sm border border-[#CDB58E]/20 space-y-4">
-      {/* Header with month navigation */}
-      <div className="flex items-center justify-between">
+    <div className="bg-white border border-[#CDB58E]/20 rounded-xl p-4">
+      {/* Header */}
+      <div className="flex items-center justify-between mb-4">
         <button
-          onClick={handlePreviousMonth}
-          className="p-2 hover:bg-[#F5EDE0] rounded-lg transition-colors"
+          onClick={prevMonth}
+          className="p-1 hover:bg-[#F5EDE0] rounded-lg transition-colors text-[#603A2A]"
         >
-          <ChevronLeft size={20} className="text-[#603A2A]" />
+          <ChevronLeft size={20} />
         </button>
-        <h3 className="font-display font-bold text-lg text-[#2A1B15]">
-          {monthNames[currentDate.getMonth()]} {currentDate.getFullYear()}
-        </h3>
+        <h3 className="font-bold text-[#2A1B15]">{capitalizedMonthYear}</h3>
         <button
-          onClick={handleNextMonth}
-          className="p-2 hover:bg-[#F5EDE0] rounded-lg transition-colors"
+          onClick={nextMonth}
+          className="p-1 hover:bg-[#F5EDE0] rounded-lg transition-colors text-[#603A2A]"
         >
-          <ChevronRight size={20} className="text-[#603A2A]" />
+          <ChevronRight size={20} />
         </button>
       </div>
 
-      {/* Day names */}
-      <div className="grid grid-cols-7 gap-1 text-center">
-        {dayNames.map(day => (
-          <div key={day} className="py-2 text-xs font-bold text-[#CDB58E] uppercase">
+      {/* Days of Week */}
+      <div className="grid grid-cols-7 gap-1 mb-2">
+        {['Lu', 'Ma', 'Me', 'Je', 'Ve', 'Sa', 'Di'].map((day) => (
+          <div key={day} className="w-9 h-9 flex items-center justify-center text-xs font-semibold text-[#8E887F]">
             {day}
           </div>
         ))}
       </div>
 
-      {/* Calendar grid */}
-      <div className="grid grid-cols-7 gap-1 text-center text-xs">
-        {calendarDays.map((date, index) => {
-          const isCurrent = isCurrentMonth(date);
-          const busy = isBusy(date);
-          const selected = isSelected(date);
-          
-          return (
-            <button
-              key={index}
-              onClick={() => handleDateClick(date)}
-              disabled={!editable || !isCurrent || busy}
-              className={`p-2 sm:p-3 rounded-lg border transition-all text-center flex flex-col items-center justify-center ${
-                !isCurrent
-                  ? 'text-gray-300 bg-gray-50 border-gray-100'
-                  : busy
-                    ? 'bg-gray-100 text-gray-400 border-gray-200 line-through opacity-60 cursor-not-allowed'
-                    : selected
-                      ? 'bg-[#603A2A] text-white border-[#603A2A]'
-                      : 'bg-[#F5EDE0]/40 text-[#2A1B15] border-[#CDB58E]/40 font-bold shadow-xs hover:bg-[#CDB58E] hover:text-[#2A1B15]'
-              } ${editable && isCurrent && !busy ? 'cursor-pointer' : ''}`}
-              title={busy ? 'Occupé' : isCurrent ? 'Libre' : ''}
-            >
-              <span className="text-sm block">{date.getDate()}</span>
-              {isCurrent && !busy && (
-                <span className="text-[8px] text-[#603A2A] block font-sans">
-                  {selected ? 'Sélectionné' : 'Dispo'}
-                </span>
-              )}
-            </button>
-          );
-        })}
+      {/* Calendar Grid */}
+      <div className="grid grid-cols-7 gap-1">
+        {renderCells()}
       </div>
 
       {/* Legend */}
-      <div className="flex items-center justify-center gap-4 text-xs pt-2 border-t border-[#F5EDE0]">
-        <span className="flex items-center gap-1">
-          <span className="w-3 h-3 rounded bg-[#F5EDE0] border border-[#CDB58E]" />
-          Libre
-        </span>
-        <span className="flex items-center gap-1">
-          <span className="w-3 h-3 rounded bg-gray-100 border border-gray-300 line-through" />
-          Occupé
-        </span>
+      <div className="mt-6 flex flex-wrap items-center gap-4 text-xs text-[#8E887F] border-t border-[#CDB58E]/20 pt-4">
+        <div className="flex items-center gap-1.5">
+          <span className="w-2.5 h-2.5 bg-red-500 rounded-full inline-block"></span>
+          <span>Occupé</span>
+        </div>
+        <div className="flex items-center gap-1.5">
+          <span className="w-2.5 h-2.5 bg-yellow-400 rounded-full inline-block"></span>
+          <span>En attente</span>
+        </div>
         {editable && (
-          <span className="flex items-center gap-1">
-            <span className="w-3 h-3 rounded bg-[#603A2A] border border-[#603A2A]" />
-            Sélectionné
-          </span>
+          <div className="flex items-center gap-1.5">
+            <span className="w-2.5 h-2.5 bg-orange-400 rounded-full inline-block"></span>
+            <span>Sélectionné</span>
+          </div>
+        )}
+        {selectionMode && (
+          <div className="flex items-center gap-1.5">
+            <span className="w-2.5 h-2.5 bg-emerald-400 rounded-full inline-block"></span>
+            <span>Disponible</span>
+          </div>
         )}
       </div>
     </div>
   );
-}
+};
+
+export default DynamicCalendar;

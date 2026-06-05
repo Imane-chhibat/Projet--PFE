@@ -21,8 +21,19 @@ import {
   MessageSquareHeart,
   UserCheck,
   Building,
+  Building2,
   Calendar,
-  Trash2
+  Trash2,
+  Megaphone,
+  CheckCircle2,
+  Mail,
+  Phone,
+  Globe,
+  ClipboardList,
+  Lightbulb,
+  X,
+  Copy,
+  Check
 } from 'lucide-react';
 import { api } from '../utils/api';
 import { AuthAlertModal } from './AuthAlertModal';
@@ -127,25 +138,25 @@ const TestimonialsColumn = (props: {
           ...new Array(2).fill(0).map((_, index) => (
             <React.Fragment key={index}>
               {props.testimonials.map(({ id, user_id, text, image, name, role }, i) => (
-                <motion.li 
+                <motion.li
                   key={`${index}-${i}`}
                   aria-hidden={index === 1 ? "true" : "false"}
                   tabIndex={index === 1 ? -1 : 0}
                   onMouseEnter={() => props.onPause?.()}
                   onMouseLeave={() => props.onResume?.()}
-                  whileHover={{ 
+                  whileHover={{
                     scale: 1.03,
                     y: -4,
                     boxShadow: "0 20px 40px -10px rgba(96, 58, 42, 0.15), 0 10px 10px -5px rgba(96, 58, 42, 0.05), 0 0 0 1px rgba(205, 181, 142, 0.2)",
                     transition: { type: "spring", stiffness: 400, damping: 17 }
                   }}
-                  whileFocus={{ 
+                  whileFocus={{
                     scale: 1.03,
                     y: -4,
                     boxShadow: "0 20px 40px -10px rgba(96, 58, 42, 0.15), 0 10px 10px -5px rgba(96, 58, 42, 0.05), 0 0 0 1px rgba(205, 181, 142, 0.2)",
                     transition: { type: "spring", stiffness: 400, damping: 17 }
                   }}
-                  className="p-6 rounded-2xl border border-[#CDB58E]/30 shadow-md max-w-xs w-full bg-[#fff8f0] transition-all duration-300 cursor-default select-none group focus:outline-none focus:ring-2 focus:ring-[#603A2A]/30 list-none" 
+                  className="p-6 rounded-2xl border border-[#CDB58E]/30 shadow-md max-w-xs w-full bg-[#fff8f0] transition-all duration-300 cursor-default select-none group focus:outline-none focus:ring-2 focus:ring-[#603A2A]/30 list-none"
                 >
                   <blockquote className="m-0 p-0">
                     <p className="text-xs sm:text-sm text-[#8E887F] font-sans leading-relaxed italic m-0 transition-colors duration-300">
@@ -186,20 +197,89 @@ const TestimonialsColumn = (props: {
 };
 
 
+const getRelativeDate = (dateString: string): string => {
+  if (!dateString) return '';
+  const date = new Date(dateString);
+  if (isNaN(date.getTime())) return dateString;
+
+  const today = new Date();
+  const d1 = new Date(date.getFullYear(), date.getMonth(), date.getDate());
+  const d2 = new Date(today.getFullYear(), today.getMonth(), today.getDate());
+
+  const diffTime = Math.abs(d2.getTime() - d1.getTime());
+  const diffDays = Math.round(diffTime / (1000 * 60 * 60 * 24));
+
+  if (diffDays === 0) {
+    return "Aujourd'hui";
+  } else if (diffDays === 1) {
+    return "Hier";
+  } else if (diffDays >= 2 && diffDays <= 6) {
+    return `Il y a ${diffDays} jours`;
+  } else if (diffDays >= 7 && diffDays <= 27) {
+    const weeks = Math.floor(diffDays / 7);
+    return `Il y a ${weeks} semaine${weeks > 1 ? 's' : ''}`;
+  } else {
+    const dd = String(date.getDate()).padStart(2, '0');
+    const mm = String(date.getMonth() + 1).padStart(2, '0');
+    const yyyy = date.getFullYear();
+    return `${dd}/${mm}/${yyyy}`;
+  }
+};
+
+const useCountUp = (target: number, duration: number = 2500, delay: number = 0, start: boolean = true) => {
+  const [count, setCount] = useState(0);
+
+  useEffect(() => {
+    if (!start) {
+      setCount(0);
+      return;
+    }
+    if (!target || isNaN(target) || target <= 0) {
+      setCount(target || 0);
+      return;
+    }
+
+    const timeout = setTimeout(() => {
+      const startTime = performance.now();
+
+      const animate = (currentTime: number) => {
+        const elapsed = currentTime - startTime;
+        const progress = Math.min(elapsed / duration, 1);
+        const eased = 1 - Math.pow(1 - progress, 3);
+        const currentValue = Math.round(target * eased);
+        setCount(currentValue);
+
+        if (progress < 1) {
+          requestAnimationFrame(animate);
+        } else {
+          setCount(target);
+        }
+      };
+
+      requestAnimationFrame(animate);
+    }, delay);
+
+    return () => clearTimeout(timeout);
+  }, [target, duration, delay, start]);
+
+  return count;
+};
+
 interface HomePageProps {
   onSearch: (city: string, specialty: string) => void;
   onSelectArtisan: (id: string) => void;
   onSelectCategory: (cat: string) => void;
+  onViewAllAnnonces?: () => void;
 }
 
 export const HomePage = ({
   onSearch,
   onSelectArtisan,
-  onSelectCategory
+  onSelectCategory,
+  onViewAllAnnonces
 }: HomePageProps) => {
   const [selectedCity, setSelectedCity] = useState('');
   const [selectedSpecialty, setSelectedSpecialty] = useState('');
-  const [appliedAnnouncements, setAppliedAnnouncements] = useState<string[]>([]);
 
   // State variables for dynamic data
   const [cities, setCities] = useState<string[]>([]);
@@ -207,7 +287,15 @@ export const HomePage = ({
   const [artisans, setArtisans] = useState<any[]>([]);
   const [announcements, setAnnouncements] = useState<any[]>([]);
   const [announcementIndex, setAnnouncementIndex] = useState(0);
-  const [statistics, setStatistics] = useState<{ artisans: number; cities: number; rating: number }>({ artisans: 0, cities: 0, rating: 0 });
+  const [statistics, setStatistics] = useState({
+    artisans: 0,      // total certified artisans on platform
+    cities: 0,        // total cities covered
+    clients: 0,       // total registered clients
+  });
+  
+  const statsRef = useRef<HTMLDivElement>(null);
+  const [statsVisible, setStatsVisible] = useState(false);
+
   // State for comment form
   const [loading, setLoading] = useState(true);
   const [author, setAuthor] = useState('');
@@ -218,25 +306,44 @@ export const HomePage = ({
   const [showAuthModal, setShowAuthModal] = useState(false);
   const [commentToDelete, setCommentToDelete] = useState<number | null>(null);
   const [testimonialsPaused, setTestimonialsPaused] = useState(false);
+  const [selectedAnnouncement, setSelectedAnnouncement] = useState<any>(null);
 
   const currentUser = JSON.parse(localStorage.getItem('auth_user') || '{}');
+
+  // Animated count-up values for hero stats
+  const animatedArtisans = useCountUp(statistics.artisans, 2500, 0, statsVisible);
+  const animatedCities = useCountUp(statistics.cities, 2000, 200, statsVisible);
+  const animatedClients = useCountUp(statistics.clients, 2200, 400, statsVisible);
 
 
   useEffect(() => {
     const fetchData = async () => {
       try {
-        const [citiesData, categoriesData, artisansData, announcementsData, statsData] = await Promise.all([
-          api.getCities(),
+        const [citiesData, categoriesData, artisansData, announcementsData] = await Promise.all([
+          api.getCities().catch(() => []),
           api.getCategories(),
-          api.getArtisans(),
+          api.getArtisans().catch(() => []),
           api.getAnnouncements().catch(() => []), // Ignore announcements error if missing
-          api.getStatistics()
         ]);
+        
+        const publicStats = await api.getPublicStats().catch(() => ({
+          artisans_count: 0,
+          cities_count: 0, 
+          clients_count: 0
+        }));
+
         setCities(citiesData);
         setCategories(categoriesData);
         setArtisans(artisansData);
         setAnnouncements(announcementsData);
-        setStatistics(statsData);
+
+        setStatistics({
+          artisans: Number(publicStats.artisans_count) || 
+                    (Array.isArray(artisansData) ? artisansData.length : 0),
+          cities: Number(publicStats.cities_count) || 
+                  (Array.isArray(citiesData) ? citiesData.length : 0),
+          clients: Number(publicStats.clients_count) || 0,
+        });
         // Load latest 20 comments
         const commentsData = await api.getComments();
         setComments(commentsData);
@@ -281,10 +388,6 @@ export const HomePage = ({
     }
   };
 
-  const handleApply = (id: string) => {
-    setAppliedAnnouncements(prev => [...prev, id]);
-  };
-
   // Helper to render Category Icon dynamically
   const renderCategoryIcon = (iconName: string) => {
     const props = { size: 28, className: "text-[#603A2A] group-hover:text-[#CDB58E] stroke-[1.5] group-hover:scale-110 transition-all duration-300" };
@@ -319,6 +422,31 @@ export const HomePage = ({
   useEffect(() => {
     isHoveredRef.current = isHovered;
   }, [isHovered]);
+
+  useEffect(() => {
+    const observer = new IntersectionObserver(
+      (entries) => {
+        entries.forEach((entry) => {
+          if (entry.isIntersecting) {
+            setStatsVisible(true);
+          } else {
+            setStatsVisible(false);
+          }
+        });
+      },
+      { threshold: 0.3 }
+    );
+
+    if (statsRef.current) {
+      observer.observe(statsRef.current);
+    }
+
+    return () => {
+      if (statsRef.current) {
+        observer.unobserve(statsRef.current);
+      }
+    };
+  }, [statsRef.current]);
 
   useEffect(() => {
     if (sliderRef.current) {
@@ -378,7 +506,7 @@ export const HomePage = ({
   // Manual navigation buttons
   const scrollSlider = (direction: "left" | "right") => {
     handleMouseEnter(); // Pause auto-scroll immediately
-    
+
     const currentX = x.get();
     const containerWidth = sliderRef.current?.offsetWidth || 0;
     const scrollAmount = containerWidth * 0.8;
@@ -501,18 +629,30 @@ export const HomePage = ({
           </div>
 
           {/* Stats rapides centrées en bas du hero (descendues ici) */}
-          <div className="mt-8 relative z-20 max-w-4xl mx-auto flex flex-wrap justify-center gap-6 sm:gap-12 bg-[#111B2F]/5 p-4 rounded-2xl border border-[#CDB58E]/20 backdrop-blur-sm">
+          <div ref={statsRef} className="mt-8 relative z-20 max-w-4xl mx-auto flex flex-wrap justify-center gap-6 sm:gap-12 bg-[#111B2F]/5 p-4 rounded-2xl border border-[#CDB58E]/20 backdrop-blur-sm">
             <div className="text-center">
-              <span className="font-display text-3xl sm:text-4xl font-bold text-[#111B2F] block">{statistics.artisans}</span>
-              <span className="text-sm text-[#8E887F] font-badge uppercase tracking-wider mt-1 block">Artisans Vérifiés</span>
+              <span className="font-display text-3xl sm:text-4xl font-bold text-[#111B2F] block">
+                {animatedArtisans}+
+              </span>
+              <span className="text-sm text-[#8E887F] font-badge uppercase tracking-wider mt-1 block">
+                Artisans Inscrits
+              </span>
             </div>
             <div className="text-center border-l-0 sm:border-l border-[#8E887F]/20 pl-0 sm:pl-16">
-              <span className="font-display text-3xl sm:text-4xl font-bold text-[#111B2F] block">{statistics.cities}</span>
-              <span className="text-sm text-[#8E887F] font-badge uppercase tracking-wider mt-1 block">Villes Couvertes</span>
+              <span className="font-display text-3xl sm:text-4xl font-bold text-[#111B2F] block">
+                {animatedCities}+
+              </span>
+              <span className="text-sm text-[#8E887F] font-badge uppercase tracking-wider mt-1 block">
+                Villes Couvertes
+              </span>
             </div>
             <div className="text-center border-l-0 sm:border-l border-[#8E887F]/20 pl-0 sm:pl-16">
-              <span className="font-display text-3xl sm:text-4xl font-bold text-[#111B2F] block">{statistics.rating}</span>
-              <span className="text-sm text-[#8E887F] font-badge uppercase tracking-wider mt-1 block">Satisfaction</span>
+              <span className="font-display text-3xl sm:text-4xl font-bold text-[#111B2F] block">
+                {animatedClients}+
+              </span>
+              <span className="text-sm text-[#8E887F] font-badge uppercase tracking-wider mt-1 block">
+                Clients Inscrits
+              </span>
             </div>
           </div>
 
@@ -577,10 +717,10 @@ export const HomePage = ({
                   className="min-w-[240px] sm:min-w-[260px] max-w-[260px] h-[310px]"
                   onMouseEnter={handleMouseEnter}
                   onMouseLeave={handleMouseLeave}
-                  whileHover={{ 
+                  whileHover={{
                     scale: 1.05,
-                    y: -10, 
-                    transition: { duration: 0.2 } 
+                    y: -10,
+                    transition: { duration: 0.2 }
                   }}
                 >
                   <div className="group relative h-full overflow-hidden rounded-2xl border border-[#CDB58E]/30 bg-[#fff8f0] shadow-md transition-all duration-500 hover:border-[#603A2A]/50 hover:shadow-2xl hover:shadow-[#603A2A]/10 flex flex-col justify-between">
@@ -618,7 +758,7 @@ export const HomePage = ({
                         <h3 className="text-sm font-display font-bold leading-tight tracking-tight text-[#2A1B15] transition-colors group-hover:text-[#603A2A] line-clamp-1">
                           {artisan.name}
                         </h3>
-                        
+
                         {/* Note étoiles (#CDB58E) */}
                         <div className="flex items-center justify-start gap-1">
                           <div className="flex text-[#CDB58E]">
@@ -657,7 +797,7 @@ export const HomePage = ({
                             </span>
                           </div>
                         </div>
-                        
+
                         <div className="flex items-center gap-1 text-[9px] font-medium text-[#603A2A] bg-[#F5EDE0] px-2 py-0.5 rounded-full">
                           <Clock className="h-2.5 w-2.5 text-[#603A2A]" />
                           <span>{artisan.experienceYears} ans exp.</span>
@@ -836,68 +976,170 @@ export const HomePage = ({
                 <ChevronRight size={18} />
               </button>
             </div>
+
+            {/* Announcements Grid */}
+            <div className="w-full">
+              {(!announcements || announcements.length === 0) ? (
+                <div className="text-center py-12 text-[#603A2A] opacity-60">
+                  <Briefcase size={40} className="mx-auto mb-3" />
+                  <p className="font-sans text-sm">Aucune annonce disponible pour le moment.</p>
+                </div>
+              ) : (
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                  {(announcements || []).slice(announcementIndex, announcementIndex + 3).map((ann) => (
+                    <div
+                      key={ann.id}
+                      className="bg-[#09152e] rounded-2xl p-5 border border-[#8E887F]/20 hover:border-[#745b19]/50 transition-all duration-300 hover:-translate-y-1 flex flex-col justify-between shadow-lg hover:shadow-xl cursor-pointer"
+                      onClick={() => setSelectedAnnouncement(ann)}
+                    >
+                      <div>
+                        <span className="inline-block px-3 py-1 bg-[#745b19] text-white text-[10px] font-bold tracking-wider uppercase rounded-full mb-3">
+                          {ann.category || ann.specialty || 'Offre'}
+                        </span>
+                        <h3 className="font-sans font-bold text-base text-white line-clamp-1 mb-2 leading-tight">
+                          {ann.company || ann.company_name || ''}
+                        </h3>
+                        <p className="text-sm text-[#745b19] font-semibold mb-3 flex items-center gap-1.5">
+                          🏢 {ann.title || ''}
+                        </p>
+                      </div>
+                      <div>
+                        <div className="flex items-center justify-between text-xs text-gray-400 pt-3 border-t border-gray-700/50 mb-3">
+                          <span className="flex items-center gap-1">
+                            <MapPin size={12} className="text-[#745b19]" />
+                            {ann.city || ann.contact_address || ''}
+                          </span>
+                          <span className="flex items-center gap-1">
+                            <Calendar size={12} />
+                            {getRelativeDate(ann.created_at || ann.date || '')}
+                          </span>
+                        </div>
+                        <button
+                          onClick={(e) => { e.stopPropagation(); setSelectedAnnouncement(ann); }}
+                          className="w-full py-2.5 rounded-lg bg-[#745b19]/20 border border-[#745b19]/40 text-white font-semibold text-xs hover:bg-[#745b19] transition-colors duration-200"
+                        >
+                          Voir les détails →
+                        </button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            <div style={{ textAlign: 'center', marginTop: 32 }}>
+              <button
+                onClick={() => onViewAllAnnonces?.()}
+                className="inline-flex items-center gap-2 px-8 py-3 bg-[#2A1B15] text-[#CDB58E] border border-[#745b19] rounded-full font-semibold text-sm hover:bg-[#745b19] hover:text-white transition-all duration-300 shadow-md hover:shadow-lg"
+              >
+                Voir toutes les offres
+                <ChevronRight size={16} />
+              </button>
+            </div>
+
+          </div>
+        </div>
+      </section>
+
+      {/* SECTION : PUBLIEZ VOTRE ANNONCE */}
+      <section className="bg-[#F5EDE0] py-12 border-b border-[#CDB58E]/30">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+
+          {/* Title - same style as other sections */}
+          <div className="text-center mb-8">
+            <span className="inline-block px-3 py-1 bg-[#603A2A]/10 border border-[#603A2A]/30 rounded-full text-xs font-badge tracking-wider text-[#603A2A] uppercase mb-4">
+              📢 Vous recrutez ?
+            </span>
+            <h2 className="font-display text-3xl sm:text-4xl font-bold text-[#2A1B15]">
+              Publiez votre annonce
+            </h2>
+            <div className="w-12 h-0.5 bg-[#603A2A] mx-auto mt-2 mb-8" />
           </div>
 
-          {/* Cartes d'annonces (3 en ligne) */}
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            {announcements.slice(announcementIndex, announcementIndex + 3).map((ann) => {
-              const isApplied = appliedAnnouncements.includes(ann.id);
-              return (
-                <div
-                  key={ann.id}
-                  className="bg-[#111B2F] rounded-xl p-4 sm:p-5 border border-[#8E887F]/30 hover:border-[#CDB58E] transition-all flex flex-col justify-between relative shadow-sm hover:shadow-md"
-                >
-                  <div>
-                    {/* Tag de catégorie coloré */}
-                    <span className="inline-block px-2 py-0.5 bg-[#603A2A] text-[#CDB58E] text-[9px] font-badge tracking-wider uppercase rounded mb-2.5">
-                      {ann.category}
+          {/* Ticker bar */}
+          <div className="rounded-xl overflow-hidden border border-[#5a4614]">
+            <div className="bg-[#603A2A] h-[52px] flex items-center overflow-hidden whitespace-nowrap">
+              <div className="marquee-ticker">
+                {[0, 1, 2, 3].map((i) => (
+                  <span key={i} className="inline-flex items-center">
+                    <span className="mx-6 text-white text-[13px] font-semibold uppercase tracking-wide">
+                      📢 PUBLIEZ VOTRE ANNONCE
                     </span>
-
-                    {/* Titre de l'annonce */}
-                    <h3 className="font-sans font-bold text-sm text-white line-clamp-2 mb-1.5 hover:text-[#CDB58E] transition-colors leading-tight">
-                      {ann.title}
-                    </h3>
-
-                    {/* Entreprise */}
-                    <p className="text-[11px] text-[#CDB58E] font-medium mb-2.5 flex items-center gap-1">
-                      <Building size={12} />
-                      {ann.company}
-                    </p>
-
-                    {/* Description */}
-                    <p className="text-[11px] text-[#8E887F] line-clamp-2 mb-3 leading-relaxed font-sans">
-                      {ann.description}
-                    </p>
-                  </div>
-
-                  <div>
-                    {/* Ville + date */}
-                    <div className="flex items-center justify-between text-[10px] text-[#8E887F] pt-2.5 border-t border-[#8E887F]/10 mb-3">
-                      <span className="flex items-center gap-1">
-                        <MapPin size={10} className="text-[#603A2A]" />
-                        {ann.city}
-                      </span>
-                      <span className="flex items-center gap-1">
-                        <Calendar size={10} />
-                        {ann.date}
-                      </span>
-                    </div>
-
-                    {/* Bouton "Postuler" */}
-                    <button
-                      onClick={() => handleApply(ann.id)}
-                      disabled={isApplied}
-                      className={`w-full py-1.5 rounded text-[11px] font-medium transition-all ${isApplied
-                        ? 'bg-green-900/40 text-green-300 border border-green-700/50 cursor-default'
-                        : 'bg-[#603A2A] text-white hover:bg-[#603A2A]/90 font-bold shadow hover:shadow-md'
-                        }`}
+                    <span className="text-[#CDB58E] mx-3">·</span>
+                    <span className="text-white text-[13px] font-semibold uppercase tracking-wide mx-4">
+                      Contactez l&apos;admin par email :
+                    </span>
+                    <a
+                      href="mailto:admin@gmail.com"
+                      className="text-[#CDB58E] font-bold text-[13px] uppercase tracking-wide mx-2 hover:underline"
+                      onClick={(e) => e.stopPropagation()}
                     >
-                      {isApplied ? '✓ Candidature Transmise' : 'Postuler à l\'offre'}
+                      admin@gmail.com
+                    </a>
+                    <button
+                      type="button"
+                      title="Copier l'email"
+                      className="ml-1 mr-2 p-1 rounded hover:bg-white/10 transition-colors text-[#CDB58E] hover:text-white"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        e.preventDefault();
+                        navigator.clipboard.writeText('admin@gmail.com');
+                        const btn = e.currentTarget;
+                        btn.dataset.copied = 'true';
+                        btn.querySelector('.icon-copy')?.classList.add('hidden');
+                        btn.querySelector('.icon-check')?.classList.remove('hidden');
+                        setTimeout(() => {
+                          btn.dataset.copied = 'false';
+                          btn.querySelector('.icon-copy')?.classList.remove('hidden');
+                          btn.querySelector('.icon-check')?.classList.add('hidden');
+                        }, 2000);
+                      }}
+                    >
+                      <Copy size={13} className="icon-copy" />
+                      <Check size={13} className="icon-check hidden text-green-400" />
                     </button>
-                  </div>
-                </div>
-              );
-            })}
+                    <span className="text-[#CDB58E] mx-3">·</span>
+                    <span className="text-white text-[13px] font-semibold uppercase tracking-wide mx-4">
+                      Ou par téléphone :
+                    </span>
+                    <a
+                      href="tel:+212622001122"
+                      className="text-[#CDB58E] font-bold text-[13px] uppercase tracking-wide mx-2 hover:underline"
+                      onClick={(e) => e.stopPropagation()}
+                    >
+                      +212 6 22 00 11 22
+                    </a>
+                    <button
+                      type="button"
+                      title="Copier le numéro"
+                      className="ml-1 mr-2 p-1 rounded hover:bg-white/10 transition-colors text-[#CDB58E] hover:text-white"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        e.preventDefault();
+                        navigator.clipboard.writeText('+212622001122');
+                        const btn = e.currentTarget;
+                        btn.querySelector('.icon-copy')?.classList.add('hidden');
+                        btn.querySelector('.icon-check')?.classList.remove('hidden');
+                        setTimeout(() => {
+                          btn.querySelector('.icon-copy')?.classList.remove('hidden');
+                          btn.querySelector('.icon-check')?.classList.add('hidden');
+                        }, 2000);
+                      }}
+                    >
+                      <Copy size={13} className="icon-copy" />
+                      <Check size={13} className="icon-check hidden text-green-400" />
+                    </button>
+                    <span className="text-[#CDB58E] mx-3">·</span>
+                    <span className="text-white text-[13px] font-semibold uppercase tracking-wide mx-6">
+                      ANNONCE PUBLIÉE SOUS 24H
+                    </span>
+                    <span className="text-[#CDB58E] mx-3">·</span>
+                    <span className="text-[#CDB58E] mx-3">·</span>
+                    <span className="text-[#CDB58E] mx-3">·</span>
+                  </span>
+                ))}
+              </div>
+            </div>
           </div>
 
         </div>
@@ -906,6 +1148,7 @@ export const HomePage = ({
       {/* SECTION 6 : TÉMOIGNAGES ANIMÉS */}
       <section className="bg-[#F5EDE0] py-16 text-[#2A1B15] border-t border-[#CDB58E]/20 overflow-hidden relative">
         {/* Decorative background zellige opacity */}
+
         <div className="absolute inset-0 zellige-pattern opacity-10 pointer-events-none" />
 
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 relative z-10">
@@ -928,7 +1171,7 @@ export const HomePage = ({
               text: c.body,
               name: c.user?.name || c.author || 'Client',
               role: c.user?.role === 'artisan' ? 'Artisan' : 'Client(e)',
-              image: c.user?.avatar 
+              image: c.user?.avatar
                 ? (c.user.avatar.startsWith('http') ? c.user.avatar : `http://localhost:8000/storage/${c.user.avatar}`)
                 : `https://ui-avatars.com/api/?name=${encodeURIComponent(c.user?.name || c.author || 'Client')}&background=random&color=fff`
             }));
@@ -942,7 +1185,7 @@ export const HomePage = ({
 
 
             return (
-              <div 
+              <div
                 className="flex justify-center gap-6 mt-10 [mask-image:linear-gradient(to_bottom,transparent,black_10%,black_90%,transparent)] max-h-[420px] overflow-hidden"
                 role="region"
                 aria-label="Témoignages défilants"
@@ -961,7 +1204,7 @@ export const HomePage = ({
       <section className="bg-[#F5EDE0] py-16 text-[#2A1B15] border-t border-[#CDB58E]/20 relative">
         {/* Subtle decorative background */}
         <div className="absolute inset-0 zellige-pattern opacity-5 pointer-events-none" />
-        
+
         <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 relative z-10 text-center">
           <div className="mb-8">
             <span className="inline-block px-3 py-1 bg-[#603A2A]/10 border border-[#603A2A]/30 rounded-full text-xs font-badge tracking-wider text-[#603A2A] uppercase mb-4">
@@ -1001,8 +1244,8 @@ export const HomePage = ({
       </section>
 
       {/* Auth Alert Modal */}
-      <AuthAlertModal 
-        isOpen={showAuthModal} 
+      <AuthAlertModal
+        isOpen={showAuthModal}
         onClose={() => setShowAuthModal(false)}
         onLoginClick={() => window.location.href = '/login'}
       />
@@ -1032,6 +1275,104 @@ export const HomePage = ({
                 className="flex-1 py-2.5 rounded-lg bg-rose-600 text-white font-bold text-sm hover:bg-rose-700 transition-colors shadow-sm"
               >
                 Confirmer
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Modal de détail d'annonce */}
+      {selectedAnnouncement && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-[#2A1B15]/80 backdrop-blur-sm animate-fadeIn"
+          onClick={() => setSelectedAnnouncement(null)}
+        >
+          <div
+            className="bg-white rounded-2xl p-8 max-w-[520px] w-full shadow-2xl relative text-left flex flex-col max-h-[90vh]"
+            onClick={(e) => e.stopPropagation()}
+          >
+            {/* HEADER */}
+            <button
+              onClick={() => setSelectedAnnouncement(null)}
+              className="absolute top-6 right-6 text-gray-400 hover:text-[#09152e] transition-colors text-2xl font-bold leading-none"
+            >
+              &times;
+            </button>
+            <div className="mb-6">
+              <span className="inline-block px-3 py-1 bg-[#745b19] text-white text-[10px] font-bold tracking-wider uppercase rounded-full mb-3">
+                {selectedAnnouncement.category}
+              </span>
+              <p className="text-2xl text-[#09152e] font-bold flex items-center gap-2">
+                <Building2 size={22} className="text-[#745b19]" /> {selectedAnnouncement.company}
+              </p>
+            </div>
+
+            {/* BODY (Scrollable if needed) */}
+            <div className="overflow-y-auto pr-2 flex-1">
+              <div className="mb-6">
+                <p className="text-sm text-gray-500 font-bold mb-1 uppercase tracking-wider">Titre de l'offre</p>
+                <h3 className="font-sans font-bold text-xl text-[#09152e] leading-tight">
+                  {selectedAnnouncement.title}
+                </h3>
+              </div>
+
+              <div className="mb-6">
+                <p className="text-sm text-gray-500 font-bold mb-1 uppercase tracking-wider">Description</p>
+                <p className="text-base text-gray-600 italic leading-relaxed font-sans whitespace-pre-wrap">
+                  {selectedAnnouncement.description}
+                </p>
+              </div>
+
+              <hr className="border-gray-200 my-6" />
+
+              {/* CONTACT SECTION */}
+              <div className="bg-[#fdf8ee] rounded-xl p-4 mb-6">
+                <h4 className="font-bold text-[#745b19] mb-4 flex items-center gap-2">
+                  <ClipboardList size={16} className="text-[#745b19]" /> Informations de contact
+                </h4>
+                <div className="flex flex-col gap-3 text-sm">
+                  <div className="flex items-center gap-2">
+                    <span className="text-gray-500 font-medium w-24 shrink-0 flex items-center gap-1"><Mail size={12} className="text-[#745b19]" /> Email :</span>
+                    <a href={`mailto:${selectedAnnouncement.email || 'contact@example.com'}`} className="text-[#745b19] hover:underline font-medium break-all">
+                      {selectedAnnouncement.email || 'contact@example.com'}
+                    </a>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <span className="text-gray-500 font-medium w-24 shrink-0 flex items-center gap-1"><Phone size={12} className="text-[#745b19]" /> Tél. :</span>
+                    <a href={`tel:${selectedAnnouncement.phone || '+212600000000'}`} className="text-[#09152e] hover:underline font-medium">
+                      {selectedAnnouncement.phone || '+212 6 00 00 00 00'}
+                    </a>
+                  </div>
+                  {(selectedAnnouncement.address || selectedAnnouncement.city) && (
+                    <div className="flex items-start gap-2">
+                      <span className="text-gray-500 font-medium w-24 shrink-0 flex items-center gap-1"><MapPin size={12} className="text-[#745b19]" /> Adresse :</span>
+                      <span className="text-gray-600 flex-1">
+                        {selectedAnnouncement.address || selectedAnnouncement.city}
+                      </span>
+                    </div>
+                  )}
+                  {selectedAnnouncement.website && (
+                    <div className="flex items-center gap-2">
+                      <span className="text-gray-500 font-medium w-24 shrink-0 flex items-center gap-1"><Globe size={12} className="text-[#745b19]" /> Site web :</span>
+                      <a href={selectedAnnouncement.website} target="_blank" rel="noopener noreferrer" className="text-[#745b19] hover:underline font-medium break-all">
+                        {selectedAnnouncement.website}
+                      </a>
+                    </div>
+                  )}
+                </div>
+              </div>
+            </div>
+
+            {/* FOOTER */}
+            <div className="flex items-center justify-between pt-4 border-t border-gray-100 mt-auto">
+              <span className="text-sm text-gray-400 font-medium">
+                Publié {getRelativeDate(selectedAnnouncement.created_at || selectedAnnouncement.date)}
+              </span>
+              <button
+                onClick={() => setSelectedAnnouncement(null)}
+                className="px-6 py-2.5 rounded-lg bg-[#09152e] text-white font-bold text-sm hover:bg-[#09152e]/90 transition-colors"
+              >
+                Fermer
               </button>
             </div>
           </div>

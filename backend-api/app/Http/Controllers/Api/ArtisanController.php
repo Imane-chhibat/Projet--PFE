@@ -46,6 +46,64 @@ class ArtisanController extends Controller
     }
 
     /**
+     * GET /api/artisans/nearby
+     */
+    public function nearby(Request $request): JsonResponse
+    {
+        $lat = $request->input('lat');
+        $lng = $request->input('lng');
+        $radius = $request->input('radius', 10);
+        $category = $request->input('category');
+
+        if (!$lat || !$lng) {
+            return response()->json(['message' => 'Latitude et longitude requises.'], 400);
+        }
+
+        $query = \Illuminate\Support\Facades\DB::table('artisan_profiles')
+            ->join('users', 'artisan_profiles.user_id', '=', 'users.id')
+            ->leftJoin('categories', 'artisan_profiles.category_id', '=', 'categories.id')
+            ->selectRaw('
+                artisan_profiles.id,
+                users.name as nom,
+                artisan_profiles.specialty as metier,
+                categories.name as categorie,
+                artisan_profiles.lat as latitude,
+                artisan_profiles.lng as longitude,
+                (6371 * acos(LEAST(1.0, cos(radians(?)) * cos(radians(artisan_profiles.lat)) 
+                * cos(radians(artisan_profiles.lng) - radians(?)) + sin(radians(?)) 
+                * sin(radians(artisan_profiles.lat))))) AS distance_km,
+                artisan_profiles.rating as note,
+                artisan_profiles.avatar as photo_url,
+                (artisan_profiles.availability = "available") as est_disponible,
+                IF(artisan_profiles.is_certified, "OFPPT", NULL) as badge
+            ', [$lat, $lng, $lat]);
+
+        if ($category) {
+            $query->where(function($q) use ($category) {
+                $q->where('categories.name', 'like', '%' . $category . '%')
+                  ->orWhere('categories.slug', $category)
+                  ->orWhere('artisan_profiles.specialty', 'like', '%' . $category . '%');
+            });
+        }
+
+        $query->whereNotNull('artisan_profiles.lat')
+              ->whereNotNull('artisan_profiles.lng')
+              ->where('artisan_profiles.lat', '!=', 0)
+              ->where('artisan_profiles.lng', '!=', 0)
+              ->havingRaw('distance_km <= ?', [$radius])
+              ->orderBy('distance_km', 'ASC');
+
+        $artisans = $query->get()->map(function($artisan) {
+            $artisan->distance_km = round((float) $artisan->distance_km, 1);
+            $artisan->est_disponible = (bool) $artisan->est_disponible;
+            $artisan->note = (float) $artisan->note;
+            return $artisan;
+        });
+
+        return response()->json($artisans);
+    }
+
+    /**
      * GET /api/artisans/{id}
      */
     public function show(string $id): JsonResponse
@@ -127,8 +185,7 @@ class ArtisanController extends Controller
             ]);
         }
 
-        // Get busy dates from accepted appointments
-        $busyDates = \App\Models\ClientRequest::where('artisan_id', $user->id)
+        $acceptedDates = \App\Models\ClientRequest::where('artisan_id', $user->id)
             ->where('status', 'accepted')
             ->pluck('requested_date')
             ->map(function ($date) {
@@ -136,8 +193,20 @@ class ArtisanController extends Controller
             })
             ->toArray();
 
+        $pendingDates = \App\Models\ClientRequest::where('artisan_id', $user->id)
+            ->where('status', 'pending')
+            ->pluck('requested_date')
+            ->map(function ($date) {
+                return date('Y-m-d', strtotime($date));
+            })
+            ->toArray();
+
+        $customDays = is_array($profile->busy_days) ? $profile->busy_days : [];
+        $mergedDates = array_values(array_unique(array_merge($acceptedDates, $customDays)));
+
         $formattedProfile = $this->formatProfile($profile);
-        $formattedProfile['busyDates'] = $busyDates;
+        $formattedProfile['busyDates'] = $mergedDates;
+        $formattedProfile['pendingDates'] = $pendingDates;
 
         return response()->json($formattedProfile);
     }
@@ -167,6 +236,8 @@ class ArtisanController extends Controller
             'busyDays'        => 'nullable|string',
             'services'        => 'nullable|string',
             'skills'          => 'nullable|string',
+            'lat'             => 'nullable|numeric|between:-90,90',
+            'lng'             => 'nullable|numeric|between:-180,180',
         ]);
 
         // Update user info
@@ -180,6 +251,8 @@ class ArtisanController extends Controller
         if ($request->has('description'))      $profile->description      = $validated['description'] ?? null;
         if ($request->has('experience_years')) $profile->experience_years = $validated['experience_years'] ?? 0;
         if ($request->has('availability'))     $profile->availability     = $validated['availability'] ?? 'available';
+        if ($request->has('lat'))              $profile->lat              = $validated['lat'] ?? $profile->lat;
+        if ($request->has('lng'))              $profile->lng              = $validated['lng'] ?? $profile->lng;
 
         if ($request->hasFile('avatar')) {
             $file = $request->file('avatar');
@@ -311,13 +384,20 @@ class ArtisanController extends Controller
     private function formatProfile(ArtisanProfile $p): array
     {
         // Get busy dates from accepted client requests for this artisan
-        $busyDates = ClientRequest::where('artisan_id', $p->user_id)
-            ->whereIn('status', ['pending', 'accepted'])
+        $acceptedDates = ClientRequest::where('artisan_id', $p->user_id)
+            ->where('status', 'accepted')
             ->pluck('requested_date')
             ->map(fn ($d) => \Carbon\Carbon::parse($d)->format('Y-m-d'))
-            ->unique()
-            ->values()
             ->toArray();
+
+        $pendingDates = ClientRequest::where('artisan_id', $p->user_id)
+            ->where('status', 'pending')
+            ->pluck('requested_date')
+            ->map(fn ($d) => \Carbon\Carbon::parse($d)->format('Y-m-d'))
+            ->toArray();
+
+        $customDates = is_array($p->busy_days) ? $p->busy_days : [];
+        $busyDates = array_values(array_unique(array_merge($acceptedDates, $customDates)));
 
         return [
             'id'              => 'artisan-' . $p->id,
@@ -335,6 +415,7 @@ class ArtisanController extends Controller
             'busyUntil'       => $p->busy_until,
             'busyDays'        => $p->busy_days ?? [],
             'busyDates'       => $busyDates,
+            'pendingDates'    => $pendingDates,
             'description'     => $p->description ?? '',
             'services'        => $p->services->map(fn ($s) => [
                 'name'        => $s->name,

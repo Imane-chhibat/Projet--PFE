@@ -8,6 +8,7 @@ import {
   Eye,
   EyeOff,
   CheckCircle2,
+  ArrowLeft,
 } from "lucide-react";
 
 import { api } from "../utils/api";
@@ -66,9 +67,10 @@ function SelectField({ icon, name, value, onChange, placeholder, options }: any)
 interface InscriptionClientProps {
   onSuccess?: () => void;
   onNavigateToLogin?: () => void;
+  onNavigateToChoix?: () => void;
 }
 
-export default function InscriptionClient({ onSuccess, onNavigateToLogin }: InscriptionClientProps) {
+export default function InscriptionClient({ onSuccess, onNavigateToLogin, onNavigateToChoix }: InscriptionClientProps) {
   const [form, setForm] = useState({
     nom: "",
     prenom: "",
@@ -156,6 +158,17 @@ export default function InscriptionClient({ onSuccess, onNavigateToLogin }: Insc
       {/* Overlay */}
       <div className="absolute inset-0 bg-gradient-to-b from-black/20 via-black/30 to-black/60" />
 
+      {/* Bouton Retour au choix (Outside card) */}
+      {onNavigateToChoix && (
+        <button
+          onClick={(e) => { e.preventDefault(); onNavigateToChoix(); }}
+          className="absolute top-4 left-4 sm:top-6 sm:left-6 z-50 text-white/70 hover:text-white transition flex items-center gap-1.5 text-sm bg-black/20 hover:bg-black/40 rounded-full px-4 py-2 shadow-lg"
+        >
+          <ArrowLeft className="w-5 h-5" />
+          <span className="hidden sm:inline font-medium">Retour au choix</span>
+        </button>
+      )}
+
       {/* Toast succès */}
       {submitted && (
         <div className="fixed top-6 right-6 z-50 bg-emerald-500/90 backdrop-blur-md text-white px-5 py-3 rounded-xl shadow-2xl flex items-center gap-2 animate-[slideIn_0.3s_ease-out]">
@@ -171,7 +184,8 @@ export default function InscriptionClient({ onSuccess, onNavigateToLogin }: Insc
 
       <div className="relative w-full max-w-4xl z-10 my-1">
         {/* Card */}
-        <div className="backdrop-blur-2xl bg-white/10 border border-white/20 rounded-3xl shadow-2xl p-4 sm:p-6">
+        <div className="relative backdrop-blur-2xl bg-white/10 border border-white/20 rounded-3xl shadow-2xl p-4 sm:p-6">
+
           {/* Header */}
           <div className="text-center mb-3">
             <p className="text-white/80 text-sm sm:text-base">

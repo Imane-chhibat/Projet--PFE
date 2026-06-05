@@ -18,7 +18,7 @@ export const Footer = ({ setActivePage, onSelectCategory }: FooterProps) => {
     <footer className="bg-[#111B2F] text-white pt-16 pb-8 border-t-2 border-[#CDB58E]/30">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-10 pb-12">
-          
+
           {/* Column 1: Brand */}
           <div className="space-y-4">
             <div className="flex items-center gap-3">
@@ -70,26 +70,26 @@ export const Footer = ({ setActivePage, onSelectCategory }: FooterProps) => {
                 </button>
               </li>
               <li>
-                <button 
+                <button
                   onClick={() => {
                     setActivePage('home');
                     setTimeout(() => {
                       document.getElementById('annonces-section')?.scrollIntoView({ behavior: 'smooth' });
                     }, 100);
-                  }} 
+                  }}
                   className="hover:text-white transition-colors"
                 >
                   Offres d'emploi & Recrutement
                 </button>
               </li>
               <li>
-                <button 
+                <button
                   onClick={() => {
                     setActivePage('home');
                     setTimeout(() => {
                       document.getElementById('ofppt-section')?.scrollIntoView({ behavior: 'smooth' });
                     }, 100);
-                  }} 
+                  }}
                   className="hover:text-white transition-colors text-[#CDB58E]"
                 >
                   Diplômés التكوين المهني
@@ -106,7 +106,7 @@ export const Footer = ({ setActivePage, onSelectCategory }: FooterProps) => {
             <ul className="grid grid-cols-2 gap-x-4 gap-y-2 text-sm text-[#8E887F]">
               {categories.slice(0, 8).map((cat) => (
                 <li key={cat.id}>
-                  <button 
+                  <button
                     onClick={() => {
                       onSelectCategory(cat.name);
                       setActivePage('search');
@@ -132,12 +132,12 @@ export const Footer = ({ setActivePage, onSelectCategory }: FooterProps) => {
               </li>
               <li className="flex items-center gap-3">
                 <Phone size={18} className="text-[#CDB58E] shrink-0" />
-                <span className="text-white">+212 5 22 00 11 22</span>
+                <span className="text-white">+212 6 22 00 11 22</span>
               </li>
               <li className="flex items-center gap-3">
                 <Mail size={18} className="text-[#CDB58E] shrink-0" />
-                <a href="mailto:contact@handpro.ma" className="hover:text-white transition-colors">
-                  contact@handpro.ma
+                <a href="mailto:admin@handpro.ma" className="hover:text-white transition-colors">
+                  admin@handpro.ma
                 </a>
               </li>
             </ul>

@@ -59,13 +59,28 @@ class ClientRequestController extends Controller
      */
     public function indexArtisan(Request $request): JsonResponse
     {
-        $requests = ClientRequest::with('client')
+        $requests = ClientRequest::with('client:id,name,phone')
             ->where('artisan_id', $request->user()->id)
+            ->where('status', 'pending')
             ->orderBy('created_at', 'desc')
             ->get();
 
+        $formatted = $requests->map(function ($req) {
+            return [
+                'id' => $req->id,
+                'requested_date' => $req->requested_date,
+                'message' => $req->message ?? '',
+                'status' => $req->status,
+                'client' => $req->client ? [
+                    'id' => $req->client->id,
+                    'name' => $req->client->name,
+                    'phone' => $req->client->phone,
+                ] : null,
+            ];
+        });
+
         return response()->json([
-            'requests' => $requests,
+            'requests' => $formatted,
         ]);
     }
 
@@ -181,20 +196,17 @@ class ClientRequestController extends Controller
      */
     public function reject(Request $request, $id): JsonResponse
     {
-        $clientRequest = ClientRequest::with('client')->findOrFail($id);
+        $clientRequest = ClientRequest::findOrFail($id);
 
         if ($clientRequest->artisan_id !== $request->user()->id) {
             return response()->json(['message' => 'Unauthorized'], 403);
         }
 
         $clientRequest->update([
-            'status' => 'rejected',
+            'status' => 'refused',
         ]);
 
-        return response()->json([
-            'message' => 'Demande refusée',
-            'request' => $clientRequest,
-        ]);
+        return response()->json(['success' => true]);
     }
 
     /**

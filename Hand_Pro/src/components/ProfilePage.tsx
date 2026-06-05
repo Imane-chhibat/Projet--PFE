@@ -17,6 +17,7 @@ import {
 } from 'lucide-react';
 import { api } from '../utils/api';
 import { AuthAlertModal } from './AuthAlertModal';
+import DynamicCalendar from './DynamicCalendar';
 
 interface ProfilePageProps {
   artisanId: string;
@@ -44,7 +45,7 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({
   
   // Modal RDV state
   const [showRdvModal, setShowRdvModal] = useState<boolean>(false);
-  const [selectedDay, setSelectedDay] = useState<number | null>(null);
+  const [selectedDate, setSelectedDate] = useState<Date | null>(null);
   const [rdvConfirmed, setRdvConfirmed] = useState<boolean>(false);
   const [rdvForm, setRdvForm] = useState({ name: '', phone: '', service: '', note: '' });
   const [showAuthAlert, setShowAuthAlert] = useState<boolean>(false);
@@ -144,8 +145,8 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({
     }
   };
 
-  const triggerRdv = (dayNumber?: number) => {
-    setSelectedDay(dayNumber || 18);
+  const triggerRdv = (date?: Date) => {
+    setSelectedDate(date || new Date());
     setShowRdvModal(true);
     setRdvConfirmed(false);
   };
@@ -158,12 +159,13 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({
       return;
     }
 
-    if (!selectedDay) return;
+    if (!selectedDate) return;
 
     try {
-      const month = String(new Date().getMonth() + 1).padStart(2, '0');
-      const dayStr = String(selectedDay).padStart(2, '0');
-      const dateStr = `${new Date().getFullYear()}-${month}-${dayStr}`;
+      const d = new Date(selectedDate.getFullYear(), selectedDate.getMonth(), selectedDate.getDate(), 12);
+      const dateStr = d.toISOString().split('T')[0];
+      const month = String(d.getMonth() + 1).padStart(2, '0');
+      const dayStr = String(d.getDate()).padStart(2, '0');
       
       await api.createClientRequest(artisan.id, dateStr);
       
@@ -832,82 +834,25 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({
                 <div className="flex items-center justify-between border-b border-[#F5EDE0] pb-3">
                   <div>
                     <h3 className="font-display font-bold text-base text-[#2A1B15]">
-                      Disponibilités de Juin 2026
+                      Disponibilités de l'Artisan
                     </h3>
                     <p className="text-xs text-[#8E887F]">
                       Sélectionnez une date libre pour formuler une demande de visite technique.
                     </p>
                   </div>
 
-                  <div className="flex items-center gap-2 text-[10px]">
-                    <span className="flex items-center gap-1">
-                      <span className="w-2.5 h-2.5 rounded bg-[#F5EDE0] border border-[#CDB58E]" /> Libre
-                    </span>
-                    <span className="flex items-center gap-1">
-                      <span className="w-2.5 h-2.5 rounded bg-gray-100 border border-gray-300 line-through" /> Occupé
-                    </span>
-                  </div>
+
                 </div>
 
-                {/* Vue mensuelle simulée en grille */}
-                <div className="grid grid-cols-7 gap-1 text-center text-xs font-medium">
-                  {['Lun', 'Mar', 'Mer', 'Jeu', 'Ven', 'Sam', 'Dim'].map(d => (
-                    <div key={d} className="py-1 text-[#CDB58E] font-badge uppercase">{d}</div>
-                  ))}
-
-                  {/* Compute current month calendar */}
-                  {(() => {
-                    const now = new Date();
-                    const year = now.getFullYear();
-                    const month = now.getMonth(); // 0-indexed
-                    const firstDay = new Date(year, month, 1).getDay(); // 0=Sun
-                    // Convert to Mon=0 format
-                    const offset = firstDay === 0 ? 6 : firstDay - 1;
-                    const daysInMonth = new Date(year, month + 1, 0).getDate();
-                    const today = now.getDate();
-                    
-                    const busyDatesSet = new Set(artisan.busyDates || []);
-                    
-                    const cells = [];
-                    
-                    // Empty offset cells for previous month
-                    for (let i = 0; i < offset; i++) {
-                      cells.push(
-                        <div key={`empty-${i}`} className="p-2 text-gray-300 bg-gray-50 rounded"></div>
-                      );
-                    }
-
-                    // Real days
-                    for (let day = 1; day <= daysInMonth; day++) {
-                      const dateStr = `${year}-${String(month + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
-                      const isBusy = busyDatesSet.has(dateStr);
-                      const isPast = day < today;
-                      const isDisabled = isBusy || isPast;
-
-                      cells.push(
-                        <button
-                          key={day}
-                          disabled={isDisabled}
-                          onClick={() => triggerRdv(day)}
-                          className={`p-2 sm:p-3 rounded-lg border transition-all text-center flex flex-col items-center justify-center ${
-                            isBusy 
-                              ? 'bg-red-50 text-red-400 border-red-200 cursor-not-allowed line-through opacity-70' 
-                              : isPast
-                                ? 'bg-gray-50 text-gray-300 border-gray-200 cursor-not-allowed opacity-50'
-                                : 'bg-emerald-50/40 text-[#2A1B15] border-emerald-300/60 hover:bg-emerald-100 hover:border-emerald-400 font-bold cursor-pointer shadow-xs'
-                          }`}
-                          title={isBusy ? 'Journée réservée' : isPast ? 'Jour passé' : 'Cliquer pour prendre RDV'}
-                        >
-                          <span className="text-sm block">{day}</span>
-                          {isBusy && <span className="text-[8px] block font-sans">Occupé</span>}
-                          {!isBusy && !isPast && <span className="text-[8px] text-emerald-600 block font-sans">Dispo</span>}
-                        </button>
-                      );
-                    }
-
-                    return cells;
-                  })()}
-                </div>
+                <DynamicCalendar
+                  busyDates={Array.isArray(artisan.busyDates) ? artisan.busyDates : []}
+                  pendingDates={Array.isArray(artisan.pendingDates) ? artisan.pendingDates : []}
+                  selectionMode={true}
+                  selectedDate={selectedDate}
+                  onSelectDate={(date) => {
+                    triggerRdv(date);
+                  }}
+                />
 
                 <div className="text-[11px] text-[#8E887F] text-center pt-2 italic">
                   * Le calendrier est synchronisé quotidiennement par l'artisan via son application mobile HandPro.
@@ -1073,7 +1018,7 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({
                 Rendez-vous avec {artisan.name}
               </h3>
               <p className="text-xs text-[#8E887F] mt-1">
-                Créneau présélectionné : <strong className="text-[#603A2A]">Juin {selectedDay || 18}, 2026</strong>
+                Créneau présélectionné : <strong className="text-[#603A2A]">{selectedDate ? selectedDate.toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric' }) : ''}</strong>
               </p>
             </div>
 

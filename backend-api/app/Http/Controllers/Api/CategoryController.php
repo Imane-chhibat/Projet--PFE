@@ -25,7 +25,7 @@ class CategoryController extends Controller
         $cities = [
             'Casablanca', 'Rabat', 'Marrakech', 'Fès', 'Tanger', 'Agadir',
             'Meknès', 'Oujda', 'Kenitra', 'Tétouan', 'Safi', 'El Jadida',
-            'Béni Mellal', 'Nador', 'Khouribga', 'Settat'
+            'Béni Mellal', 'Nador', 'Khouribga', 'Settat', 'Ouarzazate'
         ];
 
         return response()->json($cities);

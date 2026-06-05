@@ -12,6 +12,7 @@ import {
   Eye,
   EyeOff,
   CheckCircle2,
+  ArrowLeft,
 } from "lucide-react";
 import { api } from "../utils/api";
 import { ConditionsGeneralesModal } from "./ConditionsGeneralesModal";
@@ -66,7 +67,7 @@ function SelectField({ icon, name, value, onChange, placeholder, options }: any)
 }
 
 // Composant principal InscriptionArtisan
-export default function InscriptionArtisan({ onSuccess, onNavigateToLogin }: { onSuccess?: () => void, onNavigateToLogin?: () => void }) {
+export default function InscriptionArtisan({ onSuccess, onNavigateToLogin, onNavigateToChoix }: { onSuccess?: () => void, onNavigateToLogin?: () => void, onNavigateToChoix?: () => void }) {
   const [form, setForm] = useState({
     nom: "",
     prenom: "",
@@ -87,6 +88,9 @@ export default function InscriptionArtisan({ onSuccess, onNavigateToLogin }: { o
   const [cities, setCities] = useState<string[]>([]);
   const [showConditionsModal, setShowConditionsModal] = useState(false);
   const [categories, setCategories] = useState<string[]>([]);
+  const [diplomaType, setDiplomaType] = useState("");
+  const [verifyStatus, setVerifyStatus] = useState<"idle"|"loading"|"success"|"error">("idle");
+  const [verifyMessage, setVerifyMessage] = useState("");
 
   useEffect(() => {
     const fetchData = async () => {
@@ -124,11 +128,49 @@ export default function InscriptionArtisan({ onSuccess, onNavigateToLogin }: { o
     }
   };
 
+  const handleDiplomaVerify = async (e: any) => {
+    const file = e.target.files[0];
+    if (!file || !diplomaType) return;
+
+    setVerifyStatus("loading");
+    setVerifyMessage("");
+
+    try {
+      const formData = new FormData();
+      formData.append("diploma", file);
+      formData.append("diploma_type", diplomaType);
+
+      const res = await fetch("http://localhost:8000/api/verify-diploma", {
+        method: "POST",
+        headers: {
+          "Accept": "application/json"
+        },
+        body: formData,
+      });
+
+      const data = await res.json();
+      if (data.valid) {
+        setVerifyStatus("success");
+        setVerifyMessage(`Diplôme valide — ${diplomaType}`);
+      } else {
+        setVerifyStatus("error");
+        setVerifyMessage(data.message || "Document non reconnu");
+      }
+    } catch (err: any) {
+      setVerifyStatus("error");
+      setVerifyMessage("Erreur de vérification");
+    }
+  };
+
   const handleSubmit = async (e: any) => {
     e.preventDefault();
     if (!form.conditions) return;
     if (form.password !== form.confirmPassword) {
       setPasswordError("Les mots de passe ne correspondent pas");
+      return;
+    }
+    if (form.certifie && verifyStatus !== "success") {
+      setPasswordError("Veuillez joindre un diplôme valide");
       return;
     }
 
@@ -147,6 +189,7 @@ export default function InscriptionArtisan({ onSuccess, onNavigateToLogin }: { o
       const attestationInput = e.target.querySelector('input[name="attestation"]');
       if (attestationInput && attestationInput.files[0]) {
         formData.append("attestation", attestationInput.files[0]);
+        formData.append("diploma_type", diplomaType);
       }
 
       const data = await api.register(formData);
@@ -175,6 +218,17 @@ export default function InscriptionArtisan({ onSuccess, onNavigateToLogin }: { o
       {/* Overlay */}
       <div className="absolute inset-0 bg-gradient-to-b from-black/20 via-black/30 to-black/60" />
 
+      {/* Bouton Retour au choix (Outside card) */}
+      {onNavigateToChoix && (
+        <button
+          onClick={(e) => { e.preventDefault(); onNavigateToChoix(); }}
+          className="absolute top-4 left-4 sm:top-6 sm:left-6 z-50 text-white/70 hover:text-white transition flex items-center gap-1.5 text-sm bg-black/20 hover:bg-black/40 rounded-full px-4 py-2 shadow-lg"
+        >
+          <ArrowLeft className="w-5 h-5" />
+          <span className="hidden sm:inline font-medium">Retour au choix</span>
+        </button>
+      )}
+
       {/* Toast succès */}
       {submitted && (
         <div className="fixed top-6 right-6 z-50 bg-emerald-500/90 backdrop-blur-md text-white px-5 py-3 rounded-xl shadow-2xl flex items-center gap-2 animate-[slideIn_0.3s_ease-out]">
@@ -190,7 +244,8 @@ export default function InscriptionArtisan({ onSuccess, onNavigateToLogin }: { o
 
       <div className="relative w-full max-w-4xl z-10 my-4">
         {/* Card */}
-        <div className="backdrop-blur-2xl bg-white/10 border border-white/20 rounded-3xl shadow-2xl p-6 sm:p-8">
+        <div className="relative backdrop-blur-2xl bg-white/10 border border-white/20 rounded-3xl shadow-2xl p-6 sm:p-8">
+
           {/* Header */}
           <div className="text-center mb-4">
             <p className="text-white/80 text-sm sm:text-base">
@@ -299,6 +354,7 @@ export default function InscriptionArtisan({ onSuccess, onNavigateToLogin }: { o
                   placeholder="Mot de passe"
                   required
                   minLength={6}
+                  autoComplete="new-password"
                   className="bg-transparent outline-none text-white placeholder-white/70 w-full text-sm"
                 />
                 <button
@@ -329,6 +385,7 @@ export default function InscriptionArtisan({ onSuccess, onNavigateToLogin }: { o
                   onChange={handleChange}
                   placeholder="Confirmer le mot de passe"
                   required
+                  autoComplete="new-password"
                   className="bg-transparent outline-none text-white placeholder-white/70 w-full text-sm"
                 />
                 <button
@@ -392,14 +449,53 @@ export default function InscriptionArtisan({ onSuccess, onNavigateToLogin }: { o
             {/* Attestation */}
             {form.certifie && (
               <div className="flex flex-col gap-2 backdrop-blur-md bg-white/10 border border-white/20 rounded-2xl px-5 py-4 transition animate-[fadeIn_0.3s_ease-out]">
-                <label className="text-white text-sm font-medium">Joindre votre attestation / diplôme</label>
+                <SelectField
+                  icon={<BadgeCheck className="w-5 h-5" />}
+                  name="diplomaType"
+                  value={diplomaType}
+                  onChange={(e: any) => {
+                    setDiplomaType(e.target.value);
+                    setVerifyStatus("idle");
+                    setVerifyMessage("");
+                  }}
+                  placeholder="Type de diplôme"
+                  options={[
+                    "Diplôme OFPPT — Technicien",
+                    "Diplôme OFPPT — Technicien Spécialisé",
+                    "Baccalauréat",
+                    "Licence / Master",
+                    "Autre certificat professionnel"
+                  ]}
+                />
+                
+                <label className="text-white text-sm font-medium mt-2">Joindre votre attestation / diplôme</label>
                 <input
                   type="file"
                   name="attestation"
                   accept=".pdf,image/*"
                   required={form.certifie}
-                  className="text-sm text-white/80 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-amber-400 file:text-[#2A1B15] hover:file:bg-amber-300 transition"
+                  onChange={handleDiplomaVerify}
+                  disabled={!diplomaType}
+                  className="text-sm text-white/80 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-amber-400 file:text-[#2A1B15] hover:file:bg-amber-300 transition disabled:opacity-50 disabled:cursor-not-allowed"
                 />
+                <p className="text-white/60 text-[10px]">Le document sera vérifié automatiquement</p>
+
+                {verifyStatus !== "idle" && (
+                  <div className={`mt-2 rounded-2xl px-4 py-2 text-sm flex items-center gap-2 ${
+                    verifyStatus === "success" 
+                      ? "bg-emerald-500/20 border border-emerald-400/40 text-emerald-300" 
+                      : verifyStatus === "error"
+                      ? "bg-red-500/20 border border-red-400/40 text-red-300"
+                      : "bg-white/10 border border-white/20 text-white"
+                  }`}>
+                    {verifyStatus === "loading" && (
+                      <div className="w-4 h-4 border-2 border-white/40 border-t-white rounded-full animate-spin shrink-0" />
+                    )}
+                    {verifyStatus === "loading" && <span>Vérification en cours...</span>}
+                    {verifyStatus === "success" && <span>✅ {verifyMessage}</span>}
+                    {verifyStatus === "error" && <span>❌ {verifyMessage}</span>}
+                  </div>
+                )}
               </div>
             )}
 

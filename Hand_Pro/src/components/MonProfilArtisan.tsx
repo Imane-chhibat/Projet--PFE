@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { 
   MapPin, 
   Star, 
@@ -13,7 +13,9 @@ import {
   CheckCircle,
   CheckCircle2,
   Loader2,
-  AlertCircle
+  AlertCircle,
+  Navigation2,
+  Bell
 } from 'lucide-react';
 import { api } from '../utils/api';
 import DynamicCalendar from './DynamicCalendar';
@@ -39,6 +41,7 @@ interface ProfileData {
   busyUntil?: string;
   busyDays?: number[];
   busyDates?: string[];
+  pendingDates?: string[];
   lat?: number;
   lng?: number;
 }
@@ -52,9 +55,10 @@ export default function MonProfilArtisan({ onBack }: { onBack?: () => void }) {
   const [error, setError] = useState("");
   const [lightboxImg, setLightboxImg] = useState<{url: string; caption: string} | null>(null);
 
-  const [activeTab, setActiveTab] = useState<'about' | 'portfolio' | 'services' | 'reviews' | 'calendar'>('about');
+  const [activeTab, setActiveTab] = useState<'about' | 'portfolio' | 'services' | 'reviews' | 'calendar' | 'demandes'>('about');
   const [requests, setRequests] = useState<any[]>([]);
   const [loadingRequests, setLoadingRequests] = useState(false);
+
 
   const [form, setForm] = useState({
     name: "", 
@@ -66,7 +70,7 @@ export default function MonProfilArtisan({ onBack }: { onBack?: () => void }) {
     availability: "available",
     coverPhoto: "",
     avatar: "",
-    busyDays: [] as number[]
+    busyDays: [] as string[]
   });
 
   const [cities, setCities] = useState<string[]>([]);
@@ -78,6 +82,13 @@ export default function MonProfilArtisan({ onBack }: { onBack?: () => void }) {
   const [newSkill, setNewSkill] = useState({ name: "", percentage: 80 });
   const [avatarFile, setAvatarFile] = useState<File | null>(null);
   const [coverFile, setCoverFile] = useState<File | null>(null);
+
+  const [artisanLocation, setArtisanLocation] = useState<{lat: number; lng: number} | null>(
+    profile?.lat && profile?.lng ? { lat: profile.lat, lng: profile.lng } : null
+  );
+  const [locationLoading, setLocationLoading] = useState(false);
+  const [locationAddress, setLocationAddress] = useState<string>("");
+  const [locationSaved, setLocationSaved] = useState(false);
 
   // Profile state and helpers
   useEffect(() => {
@@ -106,15 +117,31 @@ export default function MonProfilArtisan({ onBack }: { onBack?: () => void }) {
       if (request && request.client?.phone) {
         // Formater le numéro de téléphone pour WhatsApp
         const phone = request.client.phone.replace(/\D/g, '');
-        const message = encodeURIComponent(`Bonjour! J'ai accepté votre demande de rendez-vous pour le ${new Date(request.requested_date).toLocaleDateString('fr-FR')}. Quel type de service souhaitez-vous recevoir?`);
+        const message = encodeURIComponent(`السلام عليكم بمدا يمكنني مساعدتك`);
         const whatsappUrl = `https://wa.me/${phone}?text=${message}`;
         
         // Ouvrir WhatsApp
         window.open(whatsappUrl, '_blank');
         
+        // Optimistic update
+        const updatedRequests = requests.filter((r: any) => r.id !== requestId);
+        setRequests(updatedRequests);
+
         // Mettre à jour le statut de la demande
         await api.acceptClientRequest(requestId);
         setToast("Demande acceptée avec succès !");
+        
+        // Update calendar optimistically
+        const dateStr = request.requested_date.split('T')[0];
+        setProfile((prev: any) => {
+          if (!prev) return prev;
+          return {
+            ...prev,
+            busyDates: prev.busyDates ? [...prev.busyDates, dateStr] : [dateStr],
+            pendingDates: prev.pendingDates ? prev.pendingDates.filter((d: string) => d !== dateStr) : []
+          };
+        });
+        
         loadRequests();
         setTimeout(() => setToast(""), 3000);
       }
@@ -125,6 +152,41 @@ export default function MonProfilArtisan({ onBack }: { onBack?: () => void }) {
 
   const handleRejectRequest = async (requestId: number) => {
     try {
+      const request = requests.find((r: any) => r.id === requestId);
+      if (request && request.client?.phone) {
+        const phone = request.client.phone.replace(/\D/g, '');
+        const message = encodeURIComponent('نأسف، هذا التاريخ غير متاح. يرجى اختيار تاريخ آخر.');
+        window.open(`https://wa.me/${phone}?text=${message}`, '_blank');
+      }
+
+      // Optimistic update
+      const updatedRequests = requests.filter((r: any) => r.id !== requestId);
+      setRequests(updatedRequests);
+      
+      // Update calendar optimistically (remove the blocked date if it's not blocked by something else)
+      if (request && request.requested_date) {
+        const dateStr = request.requested_date.split('T')[0];
+        // We only remove it if there are no other pending/accepted requests for the same date
+        const otherRequestsForDate = updatedRequests.filter((r: any) => 
+          r.requested_date.split('T')[0] === dateStr && 
+          (r.status === 'pending' || r.status === 'accepted')
+        );
+        
+        if (otherRequestsForDate.length === 0) {
+          setProfile((prev: any) => {
+            if (!prev || !prev.busyDates) return prev;
+            // Only remove if it's not manually blocked in form.busyDays
+            if (form.busyDays.includes(dateStr)) return prev;
+            
+            return {
+              ...prev,
+              busyDates: prev.busyDates.filter((d: string) => d !== dateStr),
+              pendingDates: prev.pendingDates ? prev.pendingDates.filter((d: string) => d !== dateStr) : []
+            };
+          });
+        }
+      }
+
       await api.rejectClientRequest(requestId);
       setToast("Demande refusée");
       loadRequests();
@@ -161,6 +223,60 @@ export default function MonProfilArtisan({ onBack }: { onBack?: () => void }) {
       setError(err.message);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleDetectLocation = () => {
+    if (!navigator.geolocation) {
+      setToast("❌ Géolocalisation non supportée par votre navigateur");
+      return;
+    }
+    setLocationLoading(true);
+    navigator.geolocation.getCurrentPosition(
+      async (pos) => {
+        const lat = pos.coords.latitude;
+        const lng = pos.coords.longitude;
+        setArtisanLocation({ lat, lng });
+        try {
+          const res = await fetch(
+            `https://nominatim.openstreetmap.org/reverse?lat=${lat}&lon=${lng}&format=json`
+          );
+          const data = await res.json();
+          const addr = data.display_name?.split(',').slice(0, 2).join(', ') 
+            ?? `${lat.toFixed(4)}, ${lng.toFixed(4)}`;
+          setLocationAddress(addr);
+        } catch {
+          setLocationAddress(`${lat.toFixed(4)}° N, ${Math.abs(lng).toFixed(4)}° O`);
+        }
+        setLocationLoading(false);
+      },
+      () => {
+        setToast("❌ Géolocalisation refusée. Activez-la dans les paramètres.");
+        setLocationLoading(false);
+      },
+      { enableHighAccuracy: true, timeout: 8000 }
+    );
+  };
+
+  const handleSaveLocation = async () => {
+    if (!artisanLocation) return;
+    try {
+      setSaving(true);
+      const formData = new FormData();
+      formData.append('lat', artisanLocation.lat.toString());
+      formData.append('lng', artisanLocation.lng.toString());
+      await api.updateMyProfile(formData);
+      setProfile(prev => prev 
+        ? { ...prev, lat: artisanLocation.lat, lng: artisanLocation.lng } 
+        : prev
+      );
+      setLocationSaved(true);
+      setToast("📍 Localisation enregistrée !");
+      setTimeout(() => { setToast(""); setLocationSaved(false); }, 3000);
+    } catch (err: any) {
+      setToast("❌ Erreur lors de l'enregistrement");
+    } finally {
+      setSaving(false);
     }
   };
 
@@ -517,8 +633,26 @@ export default function MonProfilArtisan({ onBack }: { onBack?: () => void }) {
             </div>
 
             {/* Colonne Droite: Boutons d'action */}
-            <div className="flex flex-wrap items-center justify-center md:justify-end gap-2.5 w-full md:w-auto shrink-0 pt-2 md:pt-0">
+            <div className="flex flex-wrap items-center justify-center md:justify-end gap-2.5 w-full md:w-auto shrink-0 pt-2 md:pt-0 relative">
               
+              {/* Notification Bell */}
+              <div className="relative">
+                <button
+                  onClick={() => setActiveTab('demandes')}
+                  className="relative p-2.5 bg-[#2A1B15] text-[#CDB58E] hover:bg-[#603A2A] hover:text-white transition-all rounded-lg border border-[#CDB58E]/30 shadow-md flex items-center justify-center"
+                >
+                  <Bell size={20} />
+                  {requests.filter((r: any) => r.status === 'pending').length > 0 && (
+                    <span className="absolute -top-1 -right-1 flex h-4 w-4">
+                      <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75"></span>
+                      <span className="relative inline-flex rounded-full h-4 w-4 bg-red-500 text-[10px] text-white font-bold items-center justify-center">
+                        {requests.filter((r: any) => r.status === 'pending').length}
+                      </span>
+                    </span>
+                  )}
+                </button>
+              </div>
+
               {!editing ? (
                 <button
                   onClick={() => setEditing(true)}
@@ -545,68 +679,7 @@ export default function MonProfilArtisan({ onBack }: { onBack?: () => void }) {
         </div>
       </section>
 
-      {/* BARRE DE NOTIFICATION DES DEMANDES */}
-      {requests.filter((r: any) => r.status === 'pending').length > 0 && (
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-4">
-          <div className="bg-gradient-to-r from-[#603A2A] to-[#8B5E3C] rounded-xl p-4 shadow-lg border border-[#CDB58E]/30">
-            <div className="flex items-center justify-between mb-3">
-              <div className="flex items-center gap-2">
-                <div className="w-2 h-2 bg-emerald-400 rounded-full animate-pulse"></div>
-                <h3 className="text-white font-bold text-sm">
-                  {requests.filter((r: any) => r.status === 'pending').length} demande(s) en attente
-                </h3>
-              </div>
-              <button
-                onClick={() => setRequests([])}
-                className="text-white/70 hover:text-white text-xs"
-              >
-                Fermer
-              </button>
-            </div>
-            <div className="space-y-2">
-              {requests.filter((r: any) => r.status === 'pending').slice(0, 2).map((request: any) => (
-                <div
-                  key={request.id}
-                  className="bg-white/10 backdrop-blur-sm rounded-lg p-3 flex items-center justify-between"
-                >
-                  <div className="flex items-center gap-3">
-                    <div className="w-8 h-8 rounded-full bg-white/20 flex items-center justify-center text-white font-bold text-xs">
-                      {request.client?.name?.charAt(0).toUpperCase() || 'C'}
-                    </div>
-                    <div>
-                      <p className="text-white text-xs font-semibold">{request.client?.name || 'Client'}</p>
-                      <p className="text-white/70 text-xs">
-                        📅 {new Date(request.requested_date).toLocaleDateString('fr-FR')}
-                      </p>
-                    </div>
-                  </div>
-                  <div className="flex gap-2">
-                    <button
-                      onClick={() => handleAcceptRequest(request.id)}
-                      className="px-2 py-1 bg-emerald-500 text-white rounded text-xs font-semibold hover:bg-emerald-600 transition-colors flex items-center gap-1"
-                    >
-                      <CheckCircle size={12} />
-                      Accepter
-                    </button>
-                    <button
-                      onClick={() => handleRejectRequest(request.id)}
-                      className="px-2 py-1 bg-red-500 text-white rounded text-xs font-semibold hover:bg-red-600 transition-colors flex items-center gap-1"
-                    >
-                      <X size={12} />
-                      Refuser
-                    </button>
-                  </div>
-                </div>
-              ))}
-              {requests.filter((r: any) => r.status === 'pending').length > 2 && (
-                <p className="text-white/70 text-xs text-center">
-                  +{requests.filter((r: any) => r.status === 'pending').length - 2} autre(s) demande(s)
-                </p>
-              )}
-            </div>
-          </div>
-        </div>
-      )}
+
 
       {/* CORPS */}
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-4">
@@ -622,7 +695,8 @@ export default function MonProfilArtisan({ onBack }: { onBack?: () => void }) {
                 { id: 'portfolio', label: `Portfolio (${profile?.portfolio?.length || 0})` },
                 { id: 'services', label: 'Services & Tarifs' },
                 { id: 'reviews', label: `Avis (${profile?.reviews?.length || 0})` },
-                { id: 'calendar', label: 'Calendrier' }
+                { id: 'calendar', label: 'Calendrier' },
+                { id: 'demandes', label: `Demandes (${requests.filter(r => r.status === 'pending').length})` }
               ] as const).map((tab) => (
                 <button
                   key={tab.id}
@@ -1061,16 +1135,79 @@ export default function MonProfilArtisan({ onBack }: { onBack?: () => void }) {
 
                 <DynamicCalendar
                   busyDates={Array.isArray(profile?.busyDates) ? profile.busyDates : []}
+                  pendingDates={Array.isArray(profile?.pendingDates) ? profile.pendingDates : []}
                   editable={editing}
-                  selectedDates={form.busyDays.map(day => new Date(new Date().getFullYear(), new Date().getMonth(), day))}
+                  selectedDates={form.busyDays.map(dateStr => new Date(dateStr))}
                   onDateClick={(date) => {
-                    const day = date.getDate();
-                    const newBusyDays = form.busyDays.includes(day)
-                      ? form.busyDays.filter(d => d !== day)
-                      : [...form.busyDays, day];
+                    const d = new Date(date.getFullYear(), date.getMonth(), date.getDate(), 12);
+                    const iso = d.toISOString().split('T')[0];
+                    const newBusyDays = form.busyDays.includes(iso)
+                      ? form.busyDays.filter(dStr => dStr !== iso)
+                      : [...form.busyDays, iso];
                     setForm({ ...form, busyDays: newBusyDays });
                   }}
                 />
+              </div>
+            )}
+
+            {/* ONGLET : DEMANDES */}
+            {activeTab === 'demandes' && (
+              <div className="space-y-4 animate-fadeIn">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <h3 className="font-display font-bold text-base text-[#2A1B15]">
+                      Demandes de rendez-vous
+                    </h3>
+                    <p className="text-xs text-[#8E887F]">
+                      Gérez vos demandes de visites techniques.
+                    </p>
+                  </div>
+                </div>
+
+                <div className="space-y-3">
+                  {requests.filter((r: any) => r.status === 'pending').length === 0 ? (
+                    <div className="bg-white rounded-xl p-8 text-center border border-[#F5EDE0] shadow-sm">
+                      <p className="text-sm text-[#8E887F]">Aucune demande en attente.</p>
+                    </div>
+                  ) : (
+                    requests.filter((r: any) => r.status === 'pending').map((request: any) => (
+                      <div key={request.id} className="bg-white rounded-xl p-4 border border-[#CDB58E]/30 shadow-sm flex flex-col sm:flex-row justify-between gap-4 items-start sm:items-center">
+                        <div className="flex items-center gap-3">
+                          <div className="w-12 h-12 rounded-full bg-[#603A2A] flex items-center justify-center text-[#CDB58E] font-bold text-lg shrink-0">
+                            {request.client?.name?.charAt(0).toUpperCase() || 'C'}
+                          </div>
+                          <div>
+                            <p className="text-[#2A1B15] font-bold">{request.client?.name || 'Client'}</p>
+                            <p className="text-[#8E887F] text-sm">
+                              {new Date(request.requested_date).toLocaleDateString('fr-FR', {weekday:'long', day:'numeric', month:'long'})}
+                            </p>
+                            {request.message && (
+                              <p className="text-sm text-gray-600 italic border-l-2 border-[#CDB58E] pl-2 mt-2">
+                                "{request.message}"
+                              </p>
+                            )}
+                          </div>
+                        </div>
+                        <div className="flex gap-2 w-full sm:w-auto">
+                          <button
+                            onClick={() => handleAcceptRequest(request.id)}
+                            className="flex-1 sm:flex-none px-4 py-2 bg-emerald-50 text-emerald-600 border border-emerald-200 rounded-lg text-sm font-bold hover:bg-emerald-500 hover:text-white transition-colors flex items-center justify-center gap-2"
+                          >
+                            <CheckCircle size={16} />
+                            Accepter
+                          </button>
+                          <button
+                            onClick={() => handleRejectRequest(request.id)}
+                            className="flex-1 sm:flex-none px-4 py-2 bg-red-50 text-red-600 border border-red-200 rounded-lg text-sm font-bold hover:bg-red-500 hover:text-white transition-colors flex items-center justify-center gap-2"
+                          >
+                            <X size={16} />
+                            Refuser
+                          </button>
+                        </div>
+                      </div>
+                    ))
+                  )}
+                </div>
               </div>
             )}
 
@@ -1140,24 +1277,77 @@ export default function MonProfilArtisan({ onBack }: { onBack?: () => void }) {
               </div>
 
               {/* Zone de localisation avec carte */}
-              <div className="space-y-1.5 pt-2 border-t border-[#F5EDE0]">
-                <span className="text-xs text-[#8E887F] block font-medium">Zone couverte principale</span>
-                
+              <div className="space-y-2 pt-2 border-t border-[#F5EDE0]">
+                <div className="flex items-center justify-between">
+                  <span className="text-xs text-[#8E887F] font-medium">Zone couverte principale</span>
+                  {editing && (
+                    <span className="text-[10px] text-[#CDB58E] font-badge uppercase">
+                      {artisanLocation ? "✓ Définie" : "Non définie"}
+                    </span>
+                  )}
+                </div>
+
+                {editing && (
+                  <button
+                    onClick={handleDetectLocation}
+                    disabled={locationLoading}
+                    className="w-full flex items-center justify-center gap-2 py-2.5 rounded-lg 
+                      text-xs font-bold transition-all border bg-[#603A2A] text-white 
+                      hover:bg-[#CDB58E] hover:text-[#2A1B15] border-[#603A2A]
+                      disabled:opacity-60 disabled:cursor-not-allowed"
+                  >
+                    {locationLoading
+                      ? <><Loader2 size={13} className="animate-spin" /> Détection en cours...</>
+                      : <><Navigation2 size={13} /> Utiliser ma position actuelle</>
+                    }
+                  </button>
+                )}
+
+                {artisanLocation && locationAddress && editing && (
+                  <p className="text-[10px] text-[#8E887F] text-center flex items-center justify-center gap-1">
+                    <MapPin size={10} className="text-[#CDB58E]" />
+                    {locationAddress}
+                  </p>
+                )}
+
                 <div className="w-full h-40 bg-[#111B2F] rounded-lg overflow-hidden relative border border-[#8E887F]/30">
-                  <iframe 
-                    width="100%" 
-                    height="100%" 
-                    frameBorder="0" 
-                    scrolling="no" 
-                    marginHeight={0} 
-                    marginWidth={0} 
-                    src={`https://maps.google.com/maps?q=${profile?.lat || 33.5731},${profile?.lng || -7.5898}&hl=fr&z=14&output=embed`}
+                  <iframe
+                    key={`${artisanLocation?.lat ?? profile?.lat ?? 33.5731}-${artisanLocation?.lng ?? profile?.lng ?? -7.5898}`}
+                    width="100%"
+                    height="100%"
+                    frameBorder="0"
+                    scrolling="no"
+                    src={`https://maps.google.com/maps?q=${artisanLocation?.lat ?? profile?.lat ?? 33.5731},${artisanLocation?.lng ?? profile?.lng ?? -7.5898}&hl=fr&z=14&output=embed`}
                     className="absolute inset-0 grayscale contrast-125 opacity-80"
                   />
-                  <div className="absolute bottom-2 left-2 z-10 text-center p-1.5 px-3 bg-[#2A1B15]/90 rounded border border-[#CDB58E]/40 shadow-sm backdrop-blur-sm pointer-events-none">
-                    <span className="text-[10px] text-[#CDB58E] font-bold block">📍 {profile?.city}</span>
+                  <div className="absolute bottom-2 left-2 z-10 p-1.5 px-3 bg-[#2A1B15]/90 rounded 
+                    border border-[#CDB58E]/40 shadow-sm backdrop-blur-sm pointer-events-none">
+                    <span className="text-[10px] text-[#CDB58E] font-bold block">
+                      📍 {artisanLocation 
+                        ? locationAddress || profile?.city 
+                        : profile?.city || "Non définie"}
+                    </span>
                   </div>
                 </div>
+
+                {editing && artisanLocation && (
+                  artisanLocation.lat !== profile?.lat || artisanLocation.lng !== profile?.lng
+                ) && (
+                  <button
+                    onClick={handleSaveLocation}
+                    disabled={saving || locationSaved}
+                    className="w-full py-2 rounded-lg text-xs font-bold transition-all 
+                      flex items-center justify-center gap-2 bg-emerald-600 text-white 
+                      hover:bg-emerald-500 disabled:opacity-60"
+                  >
+                    {saving
+                      ? <><Loader2 size={12} className="animate-spin" /> Enregistrement...</>
+                      : locationSaved
+                      ? <><CheckCircle2 size={12} /> Enregistré !</>
+                      : <><Save size={12} /> Enregistrer la localisation</>
+                    }
+                  </button>
+                )}
               </div>
 
               {/* Charte de confiance */}

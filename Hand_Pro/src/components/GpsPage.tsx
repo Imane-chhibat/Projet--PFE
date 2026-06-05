@@ -1,4 +1,6 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
+import { MapContainer, TileLayer, Marker, Popup, Circle, useMap } from 'react-leaflet';
+import L from 'leaflet';
 import {
   Star,
   Navigation,
@@ -7,6 +9,78 @@ import {
 } from 'lucide-react';
 import { api } from '../utils/api';
 
+// Fix icônes Leaflet avec Vite
+delete (L.Icon.Default.prototype as any)._getIconUrl;
+L.Icon.Default.mergeOptions({
+  iconRetinaUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon-2x.png',
+  iconUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon.png',
+  shadowUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-shadow.png',
+});
+
+// Icône utilisateur (point bleu)
+const userIcon = L.divIcon({
+  className: '',
+  html: `<div style="
+    width:18px;height:18px;background:#3B82F6;border:3px solid white;
+    border-radius:50%;box-shadow:0 0 0 4px rgba(59,130,246,0.3);
+  "></div>`,
+  iconSize: [18, 18],
+  iconAnchor: [9, 9],
+});
+
+// Icône artisan (rond marron avec initiale)
+const makeArtisanIcon = (nom: string, photoUrl: string | null, isSelected: boolean) =>
+  L.divIcon({
+    className: '',
+    html: photoUrl
+      ? `<div style="
+          width:${isSelected ? 52 : 44}px;
+          height:${isSelected ? 52 : 44}px;
+          border-radius:50%;
+          border:3px solid ${isSelected ? '#CDB58E' : 'white'};
+          overflow:hidden;
+          box-shadow:0 2px 8px rgba(0,0,0,0.3);
+          transition:all 0.2s;
+        ">
+          <img src="${photoUrl}" style="width:100%;height:100%;object-fit:cover;" />
+        </div>`
+      : `<div style="
+          width:${isSelected ? 52 : 44}px;
+          height:${isSelected ? 52 : 44}px;
+          border-radius:50%;
+          background:#603A2A;
+          border:3px solid ${isSelected ? '#CDB58E' : 'white'};
+          display:flex;align-items:center;justify-content:center;
+          color:#CDB58E;font-weight:bold;font-size:18px;
+          box-shadow:0 2px 8px rgba(0,0,0,0.3);
+        ">${nom?.charAt(0).toUpperCase() || 'A'}</div>`,
+    iconSize: [isSelected ? 52 : 44, isSelected ? 52 : 44],
+    iconAnchor: [isSelected ? 26 : 22, isSelected ? 26 : 22],
+  });
+
+// Composant interne pour recentrer la carte quand userPos change
+const MapRecenter = ({ lat, lng }: { lat: number; lng: number }) => {
+  const map = useMap();
+  useEffect(() => {
+    map.flyTo([lat, lng], 13, { duration: 1.2 });
+  }, [lat, lng]);
+  return null;
+};
+
+interface Artisan {
+  id: number;
+  nom: string;
+  metier: string;
+  categorie: string;
+  latitude: number;
+  longitude: number;
+  distance_km: number;
+  note: number;
+  photo_url: string | null;
+  est_disponible: boolean;
+  badge: string | null;
+}
+
 interface GpsPageProps {
   onSelectArtisan: (id: string) => void;
 }
@@ -14,33 +88,52 @@ interface GpsPageProps {
 export const GpsPage: React.FC<GpsPageProps> = ({ onSelectArtisan }) => {
   const [radiusKm, setRadiusKm] = useState<number>(15);
   const [selectedCategory, setSelectedCategory] = useState<string>('');
-  const [hoveredArtisanId, setHoveredArtisanId] = useState<string | null>(null);
-  const [activePopupId, setActivePopupId] = useState<string | null>('artisan-1');
+  const [hoveredArtisanId, setHoveredArtisanId] = useState<number | null>(null);
+  const [selectedId, setSelectedId] = useState<number | null>(null);
   const [userLocationSimulated, setUserLocationSimulated] = useState<boolean>(true);
+  const [userPos, setUserPos] = useState<{lat: number, lng: number} | null>(null);
+  const [isLoading, setIsLoading] = useState<boolean>(false);
+  const [cityName, setCityName] = useState<string>('');
 
-  const [artisans, setArtisans] = useState<any[]>([]);
+  const [artisans, setArtisans] = useState<Artisan[]>([]);
   const [categories, setCategories] = useState<any[]>([]);
 
   React.useEffect(() => {
-    Promise.all([api.getArtisans(), api.getCategories()])
-      .then(([a, c]) => {
-        setArtisans(a);
-        setCategories(c);
-      })
+    api.getCategories()
+      .then(c => setCategories(c))
       .catch(console.error);
   }, []);
 
-  // Filter and sort by distance
-  const filteredArtisans = artisans.filter(a => {
-    if (a.distanceKm > radiusKm) return false;
-    if (selectedCategory && !a.specialty.toLowerCase().includes(selectedCategory.toLowerCase())) {
-      return false;
+  React.useEffect(() => {
+    if (userPos) {
+      const timeoutId = setTimeout(() => {
+        setIsLoading(true);
+        api.getNearbyArtisans(userPos.lat, userPos.lng, radiusKm, selectedCategory)
+          .then((data) => {
+            setArtisans(data);
+            setIsLoading(false);
+          })
+          .catch((err) => {
+            console.error(err);
+            alert("Erreur réseau: impossible de récupérer les artisans à proximité.");
+            setIsLoading(false);
+          });
+      }, 500);
+
+      // @ts-ignore : Simulation de l'appel Leaflet comme demandé
+      if (typeof map !== 'undefined') {
+        // map.flyTo([userPos.lat, userPos.lng], 13);
+      }
+      console.log(`Centrage de la carte sur : ${userPos.lat}, ${userPos.lng} avec rayon ${radiusKm}km`);
+
+      return () => clearTimeout(timeoutId);
     }
-    return true;
-  }).sort((a, b) => a.distanceKm - b.distanceKm);
+  }, [userPos, radiusKm, selectedCategory]);
+
+  const filteredArtisans = artisans; // Filtrage déjà fait côté API
 
   // Active Popup Artisan object
-  const popupArtisan = artisans.find(a => a.id === activePopupId);
+  const popupArtisan = artisans.find(a => a.id === selectedId);
 
   return (
     <div className="w-full bg-[#FFFFFF] text-[#2A1B15] min-h-screen flex flex-col animate-fadeIn">
@@ -57,7 +150,12 @@ export const GpsPage: React.FC<GpsPageProps> = ({ onSelectArtisan }) => {
               Artisans proches de vous
             </h1>
             <p className="text-xs text-[#8E887F] font-sans mt-0.5">
-              Activez votre localisation pour voir les artisans disponibles près de chez vous
+              <span>
+                {userPos && cityName
+                  ? `📍 Position détectée : ${cityName} — ${artisans.length} artisan(s) trouvé(s)`
+                  : 'Activez votre localisation pour voir les artisans disponibles près de chez vous'
+                }
+              </span>
             </p>
           </div>
 
@@ -85,83 +183,59 @@ export const GpsPage: React.FC<GpsPageProps> = ({ onSelectArtisan }) => {
         {/* CARTE GPS (60% gauche) */}
         <section className="w-full lg:w-[60%] bg-[#FFFFFF] relative flex flex-col justify-between border-r border-[#CDB58E]/20 overflow-hidden min-h-[450px]">
 
-          {/* Fond de carte simulé stylisé monochrome clair */}
-          <div className="absolute inset-0 z-0 opacity-80 pointer-events-none select-none bg-[#F5F5F5]">
-            {/* Custom SVG stylized layout representing map streets/intersections */}
-            <svg className="w-full h-full stroke-[#2A1B15] stroke-[2]" xmlns="http://www.w3.org/2000/svg">
-              <defs>
-                <pattern id="grid" width="80" height="80" patternUnits="userSpaceOnUse">
-                  <path d="M 80 0 L 0 0 0 80" fill="none" stroke="#E5E5E5" strokeWidth="1" />
-                </pattern>
-                <radialGradient id="radiusGlow" cx="50%" cy="50%" r="50%">
-                  <stop offset="0%" stopColor="#CDB58E" stopOpacity="0.25" />
-                  <stop offset="80%" stopColor="#CDB58E" stopOpacity="0.1" />
-                  <stop offset="100%" stopColor="#CDB58E" stopOpacity="0" />
-                </radialGradient>
-              </defs>
-              <rect width="100%" height="100%" fill="url(#grid)" />
+          {/* Barre supérieure de contrôles */}
+          <div className="relative z-[1000] bg-[#FFFFFF]/95 backdrop-blur-md p-3 m-3 rounded-xl border border-[#CDB58E]/30 shadow-lg flex flex-col sm:flex-row items-center justify-between gap-3 text-xs">
 
-              {/* Simulated Moroccan coastline and highway network contours */}
-              <path d="M-100 200 Q 200 150 400 300 T 900 200" fill="none" stroke="#2A1B15" strokeWidth="12" opacity="0.1" />
-              <path d="M 100 -50 L 300 600" fill="none" stroke="#603A2A" strokeWidth="4" strokeDasharray="8 4" opacity="0.15" />
-              <path d="M 500 0 L 200 700" fill="none" stroke="#603A2A" strokeWidth="3" opacity="0.1" />
-
-              {/* Rayon de recherche : cercle de distance visible, couleur #CDB58E opacity 15% */}
-              <circle
-                cx="50%"
-                cy="50%"
-                r={`${Math.min(radiusKm * 7, 280)}`}
-                fill="url(#radiusGlow)"
-                stroke="#CDB58E"
-                strokeWidth="1.5"
-                strokeDasharray="4 4"
-              />
-              <circle cx="50%" cy="50%" r="6" fill="#CDB58E" />
-              <circle cx="50%" cy="50%" r="18" fill="none" stroke="#CDB58E" strokeWidth="1" className="animate-ping opacity-40" />
-            </svg>
-
-            {/* Custom mock labels */}
-            <span className="absolute top-1/4 left-1/3 text-[10px] text-[#2A1B15]/40 font-badge tracking-widest uppercase rotate-12">
-              Quartier des Habbous
-            </span>
-            <span className="absolute bottom-1/3 right-1/4 text-[10px] text-[#2A1B15]/40 font-badge tracking-widest uppercase -rotate-6">
-              Sidi Maârouf • Technopark
-            </span>
-            <span className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 text-[10px] text-[#CDB58E] font-bold mt-4 bg-[#FFFFFF] px-1.5 py-0.5 rounded border border-[#CDB58E]/30 shadow-sm">
-              Vous êtes ici
-            </span>
-          </div>
-
-          {/* Barre supérieure de la carte */}
-          <div className="relative z-10 bg-[#FFFFFF]/90 backdrop-blur-md p-3 m-3 rounded-xl border border-[#CDB58E]/30 shadow-lg flex flex-col sm:flex-row items-center justify-between gap-3 text-xs">
-
-            {/* Bouton "Ma position" */}
+            {/* Bouton Ma position */}
             <button
               onClick={() => {
                 setRadiusKm(15);
                 setSelectedCategory('');
+                if (navigator.geolocation) {
+                  navigator.geolocation.getCurrentPosition(
+                    async (pos) => {
+                      const lat = pos.coords.latitude;
+                      const lng = pos.coords.longitude;
+                      setUserPos({ lat, lng });
+                      try {
+                        const r = await fetch(
+                          `https://nominatim.openstreetmap.org/reverse?lat=${lat}&lon=${lng}&format=json`
+                        );
+                        const d = await r.json();
+                        const city = d.address?.city
+                          || d.address?.town
+                          || d.address?.village
+                          || d.address?.county
+                          || d.display_name?.split(',')[0]
+                          || `${lat.toFixed(3)}, ${lng.toFixed(3)}`;
+                        setCityName(city);
+                      } catch {
+                        setCityName(`${lat.toFixed(3)}, ${lng.toFixed(3)}`);
+                      }
+                    },
+                    () => alert("Géolocalisation refusée ou indisponible")
+                  );
+                }
               }}
-              className="px-3 py-1.5 bg-[#603A2A] text-white hover:bg-[#603A2A]/80 transition-colors rounded-lg flex items-center gap-1.5 shrink-0 font-medium w-full sm:w-auto justify-center"
+              disabled={isLoading}
+              className={`px-3 py-1.5 bg-[#603A2A] text-white transition-colors rounded-lg flex items-center gap-1.5 shrink-0 font-medium w-full sm:w-auto justify-center ${isLoading ? 'opacity-70 cursor-not-allowed' : 'hover:bg-[#603A2A]/80'}`}
             >
-              <Navigation size={13} className="fill-white" />
-              <span>Ma position</span>
+              <Navigation size={13} className={`fill-white ${isLoading ? 'animate-spin' : ''}`} />
+              <span>{isLoading ? 'Recherche...' : 'Ma position'}</span>
             </button>
 
-            {/* Slider distance (1km — 50km) */}
+            {/* Slider rayon */}
             <div className="flex items-center gap-2 w-full sm:w-48 bg-[#F9F9F9] px-3 py-1.5 rounded-lg border border-[#8E887F]/30">
               <span className="text-[#8E887F] shrink-0 font-badge">Rayon:</span>
               <input
-                type="range"
-                min="1"
-                max="50"
-                value={radiusKm}
+                type="range" min="1" max="50" value={radiusKm}
                 onChange={(e) => setRadiusKm(Number(e.target.value))}
                 className="w-full accent-[#CDB58E] h-1 bg-gray-200 rounded-lg cursor-pointer"
               />
               <span className="text-[#CDB58E] font-bold shrink-0 w-8 text-right">{radiusKm}km</span>
             </div>
 
-            {/* Filtre rapide catégorie */}
+            {/* Filtre catégorie */}
             <select
               value={selectedCategory}
               onChange={(e) => setSelectedCategory(e.target.value)}
@@ -175,130 +249,119 @@ export const GpsPage: React.FC<GpsPageProps> = ({ onSelectArtisan }) => {
 
           </div>
 
-          {/* ZONE DE MARQUEURS ARTISANS SUR LA CARTE SIMULÉE */}
-          <div className="absolute inset-0 z-20 pointer-events-none">
-            {filteredArtisans.map((artisan, i) => {
-              // Distribute pseudo-randomly but reliably around center
-              // center is 50%, 50%
-              // distanceKm dictates offset
-              const angle = (i * 73) * (Math.PI / 180);
-              const maxPxOffset = 220;
-              const pxDist = (artisan.distanceKm / 50) * maxPxOffset + 30;
-              const leftPercent = 50 + (Math.cos(angle) * (pxDist / 4));
-              const topPercent = 50 + (Math.sin(angle) * (pxDist / 3));
+          {/* VRAIE CARTE LEAFLET */}
+          <div className="flex-1 relative" style={{ minHeight: '350px' }}>
+            <MapContainer
+              center={userPos ? [userPos.lat, userPos.lng] : [31.9, -6.9]}
+              zoom={userPos ? 13 : 6}
+              style={{ width: '100%', height: '100%', minHeight: '350px' }}
+              zoomControl={true}
+              scrollWheelZoom={true}
+            >
+              {/* Tuiles OpenStreetMap style sobre */}
+              <TileLayer
+                attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
+                url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+              />
 
-              const isHovered = hoveredArtisanId === artisan.id;
-              const isActive = activePopupId === artisan.id;
+              {/* Recentrer la carte quand userPos change */}
+              {userPos && <MapRecenter lat={userPos.lat} lng={userPos.lng} />}
 
-              return (
-                <div
-                  key={artisan.id}
-                  style={{
-                    left: `${Math.max(8, Math.min(92, leftPercent))}%`,
-                    top: `${Math.max(15, Math.min(85, topPercent))}%`,
+              {/* Marqueur position utilisateur */}
+              {userPos && (
+                <Marker position={[userPos.lat, userPos.lng]} icon={userIcon}>
+                  <Popup>
+                    <div className="text-center text-xs font-bold text-[#603A2A]">
+                      📍 {cityName || 'Vous êtes ici'}
+                    </div>
+                  </Popup>
+                </Marker>
+              )}
+
+              {/* Cercle rayon de recherche */}
+              {userPos && (
+                <Circle
+                  center={[userPos.lat, userPos.lng]}
+                  radius={radiusKm * 1000}
+                  pathOptions={{
+                    color: '#CDB58E',
+                    fillColor: '#CDB58E',
+                    fillOpacity: 0.08,
+                    dashArray: '6 4',
+                    weight: 1.5,
                   }}
-                  className="absolute -translate-x-1/2 -translate-y-1/2 pointer-events-auto transition-all duration-300"
-                >
-                  {/* Marqueur personnalisé rond fond #603A2A photo artisan à l'intérieur */}
-                  <button
-                    onClick={() => setActivePopupId(artisan.id)}
-                    onMouseEnter={() => setHoveredArtisanId(artisan.id)}
-                    onMouseLeave={() => setHoveredArtisanId(null)}
-                    className={`relative rounded-full p-0.5 transition-transform duration-200 group ${isActive || isHovered
-                        ? 'scale-125 z-50 ring-4 ring-[#CDB58E] bg-[#603A2A] shadow-2xl'
-                        : 'scale-100 z-10 bg-[#603A2A] hover:scale-110 shadow-md'
-                      } ${artisan.isCertified ? 'border-2 border-[#CDB58E]' : 'border border-white/20'
-                      }`}
+                />
+              )}
+
+              {/* Marqueurs artisans */}
+              {artisans.map((artisan) => (
+                artisan.latitude && artisan.longitude ? (
+                  <Marker
+                    key={artisan.id}
+                    position={[artisan.latitude, artisan.longitude]}
+                    icon={makeArtisanIcon(artisan.nom, artisan.photo_url, selectedId === artisan.id)}
+                    eventHandlers={{
+                      click: () => {
+                        setSelectedId(artisan.id);
+                        document.getElementById(`artisan-card-${artisan.id}`)
+                          ?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+                      },
+                    }}
                   >
-                    {artisan.avatar ? (
-                      <img
-                        src={artisan.avatar}
-                        alt={artisan.name}
-                        className="w-10 h-10 rounded-full object-cover object-top"
-                      />
-                    ) : (
-                      <div className="w-10 h-10 rounded-full flex items-center justify-center bg-[#F5EDE0] text-[#603A2A] font-display font-bold text-lg border border-white/50">
-                        {artisan.name?.charAt(0).toUpperCase() || "A"}
+                    <Popup>
+                      <div style={{ minWidth: '160px' }}>
+                        <div style={{ fontWeight: 'bold', color: '#603A2A', fontSize: '13px' }}>
+                          {artisan.nom}
+                        </div>
+                        <div style={{ fontSize: '11px', color: '#8E887F' }}>{artisan.metier}</div>
+                        <div style={{ fontSize: '11px', marginTop: '4px' }}>
+                          ⭐ {artisan.note} &nbsp;•&nbsp; 📍 {artisan.distance_km} km
+                        </div>
+                        {artisan.badge === 'OFPPT' && (
+                          <span style={{
+                            fontSize: '9px', background: '#603A2A', color: '#CDB58E',
+                            padding: '1px 6px', borderRadius: '4px', marginTop: '4px',
+                            display: 'inline-block'
+                          }}>OFPPT</span>
+                        )}
+                        <button
+                          onClick={() => onSelectArtisan(artisan.id.toString())}
+                          style={{
+                            marginTop: '8px', width: '100%', background: '#603A2A',
+                            color: 'white', border: 'none', borderRadius: '6px',
+                            padding: '5px', fontSize: '11px', cursor: 'pointer'
+                          }}
+                        >
+                          Voir le profil →
+                        </button>
                       </div>
-                    )}
+                    </Popup>
+                  </Marker>
+                ) : null
+              ))}
 
-                    {/* Sceau doré de badge certifié compact superposé */}
-                    {artisan.isCertified && (
-                      <span className="absolute -top-1 -right-1 w-4 h-4 bg-[#CDB58E] text-[#2A1B15] rounded-full flex items-center justify-center text-[8px] font-bold shadow border border-[#2A1B15]">
-                        ★
-                      </span>
-                    )}
+            </MapContainer>
 
-                    {/* Distance tooltip minimaliste */}
-                    <span className="absolute top-full left-1/2 -translate-x-1/2 mt-1 bg-[#FFFFFF] text-[#CDB58E] text-[9px] font-bold px-1.5 py-0.2 rounded border border-[#CDB58E]/30 whitespace-nowrap opacity-90 group-hover:opacity-100 shadow-sm">
-                      {artisan.distanceKm} km
-                    </span>
-                  </button>
+            {/* Message si pas encore de position */}
+            {!userPos && (
+              <div className="absolute inset-0 z-[999] flex items-center justify-center pointer-events-none">
+                <div className="bg-white/90 backdrop-blur-sm border border-[#CDB58E]/40 rounded-xl px-6 py-4 text-center shadow-lg">
+                  <div className="text-3xl mb-2">📍</div>
+                  <p className="text-sm font-bold text-[#603A2A]">Activez votre position</p>
+                  <p className="text-xs text-[#8E887F] mt-1">
+                    Cliquez sur "Ma position" ci-dessus
+                  </p>
                 </div>
-              );
-            })}
-          </div>
-
-          {/* POPUP AU CLIC SUR MARQUEUR */}
-          <div className="relative z-30 p-3 pointer-events-auto mt-auto">
-            {popupArtisan ? (
-              <div className="bg-[#FFFFFF] border-2 border-[#CDB58E] rounded-xl p-4 shadow-2xl max-w-md mx-auto animate-scaleUp flex gap-3 items-center justify-between">
-
-                <div className="flex items-center gap-3 w-full overflow-hidden">
-                  {popupArtisan.avatar ? (
-                    <img
-                      src={popupArtisan.avatar}
-                      alt={popupArtisan.name}
-                      className="w-14 h-14 rounded-lg object-cover border border-[#CDB58E] shrink-0 object-top"
-                    />
-                  ) : (
-                    <div className="w-14 h-14 rounded-lg flex items-center justify-center bg-[#F5EDE0] text-[#603A2A] font-display font-bold text-2xl border border-[#CDB58E] shrink-0">
-                      {popupArtisan.name?.charAt(0).toUpperCase() || "A"}
-                    </div>
-                  )}
-                  <div className="overflow-hidden w-full">
-                    <div className="flex items-center gap-1.5">
-                      <h4 className="font-display font-bold text-sm text-[#CDB58E] truncate">
-                        {popupArtisan.name}
-                      </h4>
-                      {popupArtisan.isCertified && <span className="text-[9px] bg-[#603A2A] text-[#CDB58E] px-1 rounded">OFPPT</span>}
-                    </div>
-
-                    <p className="text-xs text-[#8E887F] truncate font-sans">
-                      {popupArtisan.specialty}
-                    </p>
-
-                    <div className="flex items-center gap-2 mt-1 text-[11px]">
-                      <span className="flex items-center text-[#CDB58E] font-bold">
-                        <Star size={10} className="fill-[#CDB58E] mr-0.5" />
-                        {popupArtisan.rating}
-                      </span>
-                      <span className="text-[#8E887F]">({popupArtisan.reviewCount} avis)</span>
-                      <span>•</span>
-                      <span className="text-[#2A1B15] font-medium">📍 à {popupArtisan.distanceKm} km</span>
-                    </div>
-                  </div>
-                </div>
-
-                <button
-                  onClick={() => onSelectArtisan(popupArtisan.id)}
-                  className="px-3 py-2 bg-[#603A2A] hover:bg-[#CDB58E] hover:text-[#2A1B15] text-white transition-all rounded text-xs font-medium shrink-0 shadow text-center block"
-                >
-                  Voir profil
-                </button>
-
-              </div>
-            ) : (
-              <div className="bg-[#FFFFFF]/90 backdrop-blur-sm p-2 rounded text-center text-xs text-[#8E887F] border border-[#8E887F]/20 shadow-sm">
-                <Info size={12} className="inline mr-1" />
-                Cliquez sur un marqueur sur la carte pour prévisualiser l'artisan
               </div>
             )}
           </div>
 
-          {/* Instructions Map footer */}
+          {/* Footer carte */}
           <div className="bg-[#FFFFFF]/90 text-[10px] text-center text-[#8E887F] py-1 border-t border-[#8E887F]/10 relative z-10">
-            Carte interactive personnalisée • Rayon de détection mis à jour en temps réel
+            {userPos && cityName
+              ? `📍 ${cityName} — ${artisans.length} artisan(s) dans un rayon de ${radiusKm} km`
+              : 'Carte OpenStreetMap • Cliquez sur un marqueur pour voir le profil'
+            }
           </div>
 
         </section>
@@ -321,27 +384,53 @@ export const GpsPage: React.FC<GpsPageProps> = ({ onSelectArtisan }) => {
 
             {/* Cartes compactes horizontales */}
             {filteredArtisans.length === 0 ? (
-              <div className="text-center py-12 text-[#8E887F] space-y-2">
-                <p className="text-xs">Aucun Maâlem détecté dans ce rayon.</p>
-                <button
-                  onClick={() => setRadiusKm(50)}
-                  className="text-xs text-[#CDB58E] underline"
-                >
-                  Élargir le rayon à 50 km
-                </button>
+              <div className="text-center py-12 text-[#8E887F] space-y-3">
+                {!userPos ? (
+                  <>
+                    <div className="text-3xl">📍</div>
+                    <p className="text-sm font-medium text-[#2A1B15]">
+                      Activez votre position GPS
+                    </p>
+                    <p className="text-xs text-[#8E887F]">
+                      Cliquez sur "Ma position" pour trouver<br/>les artisans près de chez vous
+                    </p>
+                  </>
+                ) : isLoading ? (
+                  <>
+                    <div className="w-6 h-6 border-2 border-[#CDB58E] border-t-transparent rounded-full animate-spin mx-auto" />
+                    <p className="text-xs">Recherche en cours...</p>
+                  </>
+                ) : (
+                  <>
+                    <p className="text-xs">Aucun Maâlem détecté dans ce rayon.</p>
+                    <button
+                      onClick={() => setRadiusKm(prev => Math.min(prev + 10, 50))}
+                      className="text-xs text-[#CDB58E] underline"
+                    >
+                      Élargir le rayon à {Math.min(radiusKm + 10, 50)} km
+                    </button>
+                  </>
+                )}
               </div>
             ) : (
               <div className="space-y-3 pr-1">
                 {filteredArtisans.map((artisan) => {
                   const isHovered = hoveredArtisanId === artisan.id;
-                  const isSelected = activePopupId === artisan.id;
+                  const isSelected = selectedId === artisan.id;
 
                   return (
                     <div
                       key={artisan.id}
+                      id={`artisan-card-${artisan.id}`}
                       onMouseEnter={() => setHoveredArtisanId(artisan.id)}
                       onMouseLeave={() => setHoveredArtisanId(null)}
-                      onClick={() => setActivePopupId(artisan.id)}
+                      onClick={() => {
+                        setSelectedId(artisan.id);
+                        // @ts-ignore
+                        if (typeof map !== 'undefined') {
+                          // map.flyTo([artisan.latitude, artisan.longitude], 15, { duration: 0.8 });
+                        }
+                      }}
                       className={`p-3 rounded-xl transition-all cursor-pointer border text-left relative ${isSelected
                           ? 'bg-[#603A2A] border-[#CDB58E] shadow-md translate-x-1'
                           : isHovered
@@ -352,11 +441,11 @@ export const GpsPage: React.FC<GpsPageProps> = ({ onSelectArtisan }) => {
                       <div className="flex items-center gap-3">
                         {/* Avatar compact */}
                         <div className="relative w-12 h-12 rounded-full overflow-hidden shrink-0 border border-[#CDB58E]">
-                          {artisan.avatar ? (
-                            <img src={artisan.avatar} alt={artisan.name} className="w-full h-full object-cover object-top" />
+                          {artisan.photo_url ? (
+                            <img src={artisan.photo_url} alt={artisan.nom} className="w-full h-full object-cover object-top" />
                           ) : (
                             <div className="w-full h-full flex items-center justify-center bg-[#F5EDE0] text-[#603A2A] font-display font-bold text-xl">
-                              {artisan.name?.charAt(0).toUpperCase() || "A"}
+                              {artisan.nom?.charAt(0).toUpperCase() || "A"}
                             </div>
                           )}
                         </div>
@@ -365,31 +454,31 @@ export const GpsPage: React.FC<GpsPageProps> = ({ onSelectArtisan }) => {
                         <div className="flex-1 min-w-0">
                           <div className="flex items-center justify-between gap-1">
                             <h4 className="font-display font-bold text-sm text-white truncate">
-                              {artisan.name}
+                              {artisan.nom}
                             </h4>
                             {/* Distance affichée en #CDB58E */}
                             <span className="text-xs font-bold text-[#CDB58E] shrink-0 font-badge">
-                              {artisan.distanceKm} km
+                              {artisan.distance_km} km
                             </span>
                           </div>
 
                           <p className="text-xs text-[#F5EDE0] truncate font-sans">
-                            {artisan.specialty}
+                            {artisan.metier}
                           </p>
 
                           <div className="flex items-center justify-between mt-1 text-[11px]">
                             <div className="flex items-center gap-1.5">
-                              <span className="text-[#CDB58E]">★ {artisan.rating}</span>
-                              {artisan.isCertified && (
+                              <span className="text-[#CDB58E]">★ {artisan.note}</span>
+                              {artisan.badge === 'OFPPT' && (
                                 <span className="text-[9px] bg-[#CDB58E] text-[#2A1B15] px-1 rounded font-badge uppercase font-bold">
                                   OFPPT
                                 </span>
                               )}
                             </div>
 
-                            <span className={`text-[9px] px-1.5 py-0.2 rounded ${artisan.availability !== 'busy' ? 'text-emerald-400' : 'text-amber-400'
+                            <span className={`text-[9px] px-1.5 py-0.2 rounded ${artisan.est_disponible ? 'text-emerald-400' : 'text-amber-400'
                               }`}>
-                              {artisan.availability !== 'busy' ? '● Dispo' : 'Occupé'}
+                              {artisan.est_disponible ? '● Dispo' : 'Occupé'}
                             </span>
                           </div>
                         </div>

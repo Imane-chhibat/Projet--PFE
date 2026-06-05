@@ -10,15 +10,24 @@ class AnnouncementController extends Controller
 {
     public function index(): JsonResponse
     {
-        $announcements = Announcement::all()->map(fn ($a) => [
-            'id'          => 'ann-' . $a->id,
-            'title'       => $a->title,
-            'company'     => $a->company,
-            'category'    => $a->category,
-            'city'        => $a->city,
-            'date'        => $a->date,
-            'description' => $a->description,
-        ]);
+        $announcements = Announcement::whereNull('expires_at')
+            ->orWhere('expires_at', '>=', now()->toDateString())
+            ->get()
+            ->map(fn ($a) => [
+                'id'          => 'ann-' . $a->id,
+                'title'       => $a->title,
+                'company'     => $a->company,
+                'category'    => $a->category,
+                'city'        => $a->city,
+                'website'     => $a->website,
+                'date'        => $a->date,
+                'description' => $a->description,
+                'email'       => $a->email,
+                'phone'       => $a->phone,
+                'address'     => $a->address,
+                'expires_at'  => $a->expires_at,
+                'created_at'  => $a->created_at,
+            ]);
 
         return response()->json($announcements);
     }

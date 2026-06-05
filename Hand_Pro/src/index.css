@@ -70,8 +70,25 @@ body {
 }
 
 /* Marquee scroll animation for testimonial rows */
-@keyframes marqueeScroll {
+@keyframes marqueeTicker {
   0% { transform: translateX(0%); }
+  100% { transform: translateX(-50%); }
+}
+
+/* Ticker animation for "Publiez votre annonce" section */
+.marquee-ticker {
+  display: inline-flex;
+  align-items: center;
+  white-space: nowrap;
+  animation: ticker-scroll 40s linear infinite;
+}
+
+.marquee-ticker:hover {
+  animation-play-state: paused;
+}
+
+@keyframes ticker-scroll {
+  0%   { transform: translateX(0); }
   100% { transform: translateX(-50%); }
 }
 

@@ -31,6 +31,25 @@ class AdminController extends Controller
     }
 
     /**
+     * GET /api/stats/public
+     * Get public statistics for homepage
+     */
+    public function publicStats(Request $request): JsonResponse
+    {
+        $clientsCount = User::where('role', 'Registered User')->count();
+        $artisansCount = User::where('role', 'Artisan')->count();
+        $certifiedArtisansCount = ArtisanProfile::where('is_certified', true)->count();
+        $citiesCount = ArtisanProfile::whereNotNull('city')->distinct()->count('city');
+
+        return response()->json([
+            'clients_count' => $clientsCount,
+            'artisans_count' => $artisansCount,
+            'certified_artisans_count' => $certifiedArtisansCount,
+            'cities_count' => $citiesCount,
+        ]);
+    }
+
+    /**
      * POST /api/admin/announcements
      * Create a new announcement
      */
@@ -38,18 +57,28 @@ class AdminController extends Controller
     {
         $validated = $request->validate([
             'title' => 'required|string|max:255',
-            'content' => 'required|string',
+            'description' => 'required|string',
             'category' => 'nullable|string|max:255',
-            'company' => 'nullable|string|max:255',
+            'company_name' => 'nullable|string|max:255',
             'city' => 'nullable|string|max:255',
+            'website' => 'nullable|url|max:255',
+            'contact_email' => 'nullable|email|max:255',
+            'contact_phone' => 'nullable|string|max:255',
+            'contact_address' => 'nullable|string|max:255',
+            'expires_at' => 'nullable|date',
         ]);
 
         $announcement = Announcement::create([
             'title' => $validated['title'],
-            'description' => $validated['content'],
+            'description' => $validated['description'],
             'category' => $validated['category'] ?? 'Général',
-            'company' => $validated['company'] ?? 'Entreprise',
+            'company' => $validated['company_name'] ?? 'Entreprise',
             'city' => $validated['city'] ?? 'Maroc',
+            'website' => $validated['website'] ?? null,
+            'email' => $validated['contact_email'] ?? null,
+            'phone' => $validated['contact_phone'] ?? null,
+            'address' => $validated['contact_address'] ?? null,
+            'expires_at' => $validated['expires_at'] ?? null,
             'date' => "Aujourd'hui",
         ]);
 
@@ -81,19 +110,29 @@ class AdminController extends Controller
     {
         $validated = $request->validate([
             'title' => 'required|string|max:255',
-            'content' => 'required|string',
+            'description' => 'required|string',
             'category' => 'nullable|string|max:255',
-            'company' => 'nullable|string|max:255',
+            'company_name' => 'nullable|string|max:255',
             'city' => 'nullable|string|max:255',
+            'website' => 'nullable|url|max:255',
+            'contact_email' => 'nullable|email|max:255',
+            'contact_phone' => 'nullable|string|max:255',
+            'contact_address' => 'nullable|string|max:255',
+            'expires_at' => 'nullable|date',
         ]);
 
         $announcement = Announcement::findOrFail($id);
         $announcement->update([
             'title' => $validated['title'],
-            'description' => $validated['content'],
+            'description' => $validated['description'],
             'category' => $validated['category'] ?? 'Général',
-            'company' => $validated['company'] ?? 'Entreprise',
+            'company' => $validated['company_name'] ?? 'Entreprise',
             'city' => $validated['city'] ?? 'Maroc',
+            'website' => $validated['website'] ?? null,
+            'email' => $validated['contact_email'] ?? null,
+            'phone' => $validated['contact_phone'] ?? null,
+            'address' => $validated['contact_address'] ?? null,
+            'expires_at' => $validated['expires_at'] ?? null,
         ]);
 
         return response()->json([

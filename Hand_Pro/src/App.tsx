@@ -16,9 +16,10 @@ import ForgotPassword from './components/ForgotPassword';
 import { ProfilAdmin } from './components/ProfilAdmin';
 import MonProfilArtisan from './components/MonProfilArtisan';
 import { ChangePassword } from './components/ChangePassword';
+import { AnnoncesPage } from './components/AnnoncesPage';
 
 export default function App() {
-  const [activePage, setActivePage] = useState<'home' | 'search' | 'gps' | 'profile' | 'login' | 'forgot_password' | 'choix' | 'inscription_artisan' | 'inscription_client' | 'mon_profil' | 'change_password' | 'notifications' | 'client_profile' | 'admin_profile'>('home');
+  const [activePage, setActivePage] = useState<'home' | 'search' | 'gps' | 'profile' | 'login' | 'forgot_password' | 'choix' | 'inscription_artisan' | 'inscription_client' | 'mon_profil' | 'change_password' | 'notifications' | 'client_profile' | 'admin_profile' | 'annonces'>('home');
   const [userType, setUserType] = useState<'Visitor' | 'Registered User' | 'Artisan' | 'Admin'>('Visitor');
 
   // Scroll to top on page change
@@ -133,6 +134,7 @@ export default function App() {
             onSearch={handleHomeSearch}
             onSelectArtisan={handleSelectArtisan}
             onSelectCategory={handleSelectCategory}
+            onViewAllAnnonces={() => { setActivePage('annonces'); window.scrollTo({ top: 0, behavior: 'smooth' }); }}
           />
         )}
         {activePage === 'search' && (
@@ -178,10 +180,10 @@ export default function App() {
           <Choix onNavigate={(page) => setActivePage(page as any)} />
         )}
         {activePage === 'inscription_artisan' && (
-          <InscriptionArtisan onSuccess={handleArtisanRegistered} onNavigateToLogin={() => setActivePage('login')} />
+          <InscriptionArtisan onSuccess={handleArtisanRegistered} onNavigateToLogin={() => setActivePage('login')} onNavigateToChoix={() => { setActivePage('choix'); window.scrollTo({ top: 0, behavior: 'smooth' }); }} />
         )}
         {activePage === 'inscription_client' && (
-          <InscriptionClient onSuccess={handleClientRegistered} onNavigateToLogin={() => setActivePage('login')} />
+          <InscriptionClient onSuccess={handleClientRegistered} onNavigateToLogin={() => setActivePage('login')} onNavigateToChoix={() => { setActivePage('choix'); window.scrollTo({ top: 0, behavior: 'smooth' }); }} />
         )}
         {activePage === 'notifications' && (
           <NotificationsPage />
@@ -205,6 +207,9 @@ export default function App() {
             setActivePage(backPage); 
             window.scrollTo({ top: 0, behavior: 'smooth' }); 
           }} />
+        )}
+        {activePage === 'annonces' && (
+          <AnnoncesPage onBack={() => { setActivePage('home'); window.scrollTo({ top: 0, behavior: 'smooth' }); }} />
         )}
       </div>
 

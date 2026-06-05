@@ -1,5 +1,15 @@
 const API_BASE = 'http://localhost:8000/api';
 
+const getAuthHeaders = (): Record<string, string> => {
+  const token = localStorage.getItem('auth_token');
+  return {
+    'Content-Type': 'application/json',
+    'Accept': 'application/json',
+    ...(token ? { 'Authorization': `Bearer ${token}` } : {}),
+  };
+};
+
+
 export interface ReviewInput {
   clientName: string;
   clientAvatar?: string;
@@ -34,6 +44,12 @@ export const api = {
   async getStatistics() {
     const res = await fetch(`${API_BASE}/statistics`);
     if (!res.ok) throw new Error('Failed to fetch statistics');
+    return res.json();
+  },
+
+  async getPublicStats() {
+    const res = await fetch(`${API_BASE}/stats/public`);
+    if (!res.ok) throw new Error('Failed to fetch public stats');
     return res.json();
   },
 
@@ -77,9 +93,88 @@ export const api = {
     return res.json();
   },
 
+  async getNearbyArtisans(lat: number, lng: number, radius: number, category?: string) {
+    const params = new URLSearchParams({
+      lat: lat.toString(),
+      lng: lng.toString(),
+      radius: radius.toString(),
+    });
+    if (category) params.append('category', category);
+
+    const res = await fetch(`${API_BASE}/artisans/nearby?${params.toString()}`);
+    if (!res.ok) throw new Error('Failed to fetch nearby artisans');
+    const json = await res.json();
+    // Laravel peut retourner un tableau direct ou { data: [...] }
+    return Array.isArray(json) ? json : (json.data ?? []);
+  },
+
   async getArtisan(id: string) {
     const res = await fetch(`${API_BASE}/artisans/${id}`);
     if (!res.ok) throw new Error('Failed to fetch artisan');
+    return res.json();
+  },
+
+  async createAnnouncement(data: any) {
+    const payload = {
+      company_name:    data.company_name    || '',
+      category:        data.category        || 'Autre',
+      title:           data.title           || '',
+      description:     data.description     || '',
+      contact_email:   data.contact_email   || '',
+      contact_phone:   data.contact_phone   || '',
+      contact_address: data.contact_address || null,
+      website:         data.website         || null,
+      city:            data.city            || '',
+      expires_at:      data.expires_at      || null,
+    };
+    console.log('Creating announcement with payload:', payload);
+    const res = await fetch(`${API_BASE}/announcements`, {
+      method: 'POST',
+      headers: getAuthHeaders(),
+      body: JSON.stringify(payload),
+    });
+    const result = await res.json().catch(() => ({}));
+    console.log('Create announcement response:', res.status, result);
+    if (!res.ok) {
+      throw new Error(result.error || result.message || JSON.stringify(result.details) || 'Erreur création annonce');
+    }
+    return result;
+  },
+
+  async updateAnnouncement(id: string, data: any) {
+    const payload = {
+      company_name:    data.company_name    || '',
+      category:        data.category        || 'Autre',
+      title:           data.title           || '',
+      description:     data.description     || '',
+      contact_email:   data.contact_email   || '',
+      contact_phone:   data.contact_phone   || '',
+      contact_address: data.contact_address || null,
+      website:         data.website         || null,
+      city:            data.city            || '',
+      expires_at:      data.expires_at      || null,
+    };
+    const res = await fetch(`${API_BASE}/announcements/${id}`, {
+      method: 'PUT',
+      headers: getAuthHeaders(),
+      body: JSON.stringify(payload),
+    });
+    const result = await res.json().catch(() => ({}));
+    if (!res.ok) {
+      throw new Error(result.error || result.message || 'Erreur modification annonce');
+    }
+    return result;
+  },
+
+  async deleteAnnouncement(id: string) {
+    const res = await fetch(`${API_BASE}/announcements/${id}`, {
+      method: 'DELETE',
+      headers: getAuthHeaders(),
+    });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      throw new Error(err.error || err.message || 'Erreur suppression annonce');
+    }
     return res.json();
   },
 
@@ -515,7 +610,7 @@ export const api = {
 
   async createAnnouncement(data: { title: string; content: string }) {
     const token = localStorage.getItem('auth_token');
-    const res = await fetch(`${API_BASE}/admin/announcements`, {
+    const res = await fetch(`${API_BASE}/announcements`, {
       method: 'POST',
       headers: {
         'Authorization': `Bearer ${token}`,
@@ -533,7 +628,7 @@ export const api = {
 
   async deleteAnnouncement(id: string) {
     const token = localStorage.getItem('auth_token');
-    const res = await fetch(`${API_BASE}/admin/announcements/${id}`, {
+    const res = await fetch(`${API_BASE}/announcements/${id}`, {
       method: 'DELETE',
       headers: {
         'Authorization': `Bearer ${token}`,
@@ -549,7 +644,7 @@ export const api = {
 
   async updateAnnouncement(id: string, data: { title: string; content: string; category?: string; company?: string; city?: string }) {
     const token = localStorage.getItem('auth_token');
-    const res = await fetch(`${API_BASE}/admin/announcements/${id}`, {
+    const res = await fetch(`${API_BASE}/announcements/${id}`, {
       method: 'PUT',
       headers: {
         'Authorization': `Bearer ${token}`,

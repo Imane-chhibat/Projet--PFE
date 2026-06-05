@@ -5,12 +5,13 @@ use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\Api\AuthController;
 use App\Http\Controllers\Api\CategoryController;
 use App\Http\Controllers\Api\ArtisanController;
-use App\Http\Controllers\Api\AnnouncementController;
 use App\Http\Controllers\Api\TestimonialController;
 use App\Http\Controllers\Api\ClientRequestController;
 use App\Http\Controllers\Api\ClientProfileController;
 use App\Http\Controllers\Api\AdminController;
 use App\Http\Controllers\Api\CommentController;
+use App\Http\Controllers\AnnouncementController;
+use App\Http\Controllers\StatsController;
 
 /*
 |--------------------------------------------------------------------------
@@ -21,14 +22,17 @@ use App\Http\Controllers\Api\CommentController;
 // ── Endpoints Publics ────────────────────────────────────────
 Route::get('/categories',    [CategoryController::class,    'index']);
 Route::get('/artisans',      [ArtisanController::class,     'index']);
+Route::get('/artisans/nearby', [ArtisanController::class,   'nearby']);
 Route::get('/artisans/{id}', [ArtisanController::class,     'show']);
-Route::get('/announcements', [AnnouncementController::class,'index']);
+Route::get('/announcements', [AnnouncementController::class, 'index']);
 Route::get('/testimonials',  [TestimonialController::class, 'index']);
 Route::get('/comments',      [CommentController::class,     'index']);
 Route::get('/comments/all',  [CommentController::class,     'all']);
 Route::get('/cities',        [CategoryController::class,    'cities']); // Using CategoryController for now or maybe a DataController
 Route::get('/statistics',    [ArtisanController::class,     'statistics']);
+Route::get('/stats/public',  [StatsController::class,       'public']);
 Route::get('/debug/admin',   [AuthController::class,         'debugAdmin']);
+Route::post('/verify-diploma', [App\Http\Controllers\DiplomaController::class, 'verify']);
 
 // ── Authentification ─────────────────────────────────────────
 Route::post('/register', [AuthController::class, 'register']);
@@ -77,11 +81,13 @@ Route::middleware('auth:sanctum')->group(function () {
 
     // ── Admin Dashboard ──
     Route::get('/admin/stats', [AdminController::class, 'getStats']);
-    Route::post('/admin/announcements', [AdminController::class, 'createAnnouncement']);
-    Route::put('/admin/announcements/{id}', [AdminController::class, 'updateAnnouncement']);
-    Route::delete('/admin/announcements/{id}', [AdminController::class, 'deleteAnnouncement']);
     Route::get('/admin/announcements/{id}/applications', [AdminController::class, 'getAnnouncementApplications']);
     Route::put('/admin/applications/{id}/status', [AdminController::class, 'updateApplicationStatus']);
+
+    // ── Admin Protected Routes ──
+    Route::post('/announcements', [AnnouncementController::class, 'store']);
+    Route::put('/announcements/{id}', [AnnouncementController::class, 'update']);
+    Route::delete('/announcements/{id}', [AnnouncementController::class, 'destroy']);
 
     // ── Applications aux annonces ──
     Route::post('/announcements/{id}/apply', [AdminController::class, 'applyToAnnouncement']);
