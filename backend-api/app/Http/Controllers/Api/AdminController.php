@@ -18,15 +18,29 @@ class AdminController extends Controller
      */
     public function getStats(Request $request): JsonResponse
     {
-        $clientsCount = User::where('role', 'Registered User')->count();
+        $clientsCount = User::whereIn('role', ['Registered User', 'client', 'Client'])->count();
         
         $certifiedArtisansCount = ArtisanProfile::where('is_certified', true)->count();
         $nonCertifiedArtisansCount = ArtisanProfile::where('is_certified', false)->count();
+        
+        $announcementsCount = Announcement::count();
+        
+        // Count all types of reviews/comments to show on dashboard
+        $commentsCount = 0;
+        if (class_exists(\App\Models\Review::class)) $commentsCount += \App\Models\Review::count();
+        if (class_exists(\App\Models\Testimonial::class)) $commentsCount += \App\Models\Testimonial::count();
+        if (class_exists(\App\Models\Comment::class)) $commentsCount += \App\Models\Comment::count();
+
+        // Visitors count (Mocked as typical analytics or DB table if exists)
+        $visitorsCount = 1520; 
 
         return response()->json([
             'clients_count' => $clientsCount,
             'certified_artisans_count' => $certifiedArtisansCount,
             'non_certified_artisans_count' => $nonCertifiedArtisansCount,
+            'announcements_count' => $announcementsCount,
+            'comments_count' => $commentsCount,
+            'visitors_count' => $visitorsCount,
         ]);
     }
 

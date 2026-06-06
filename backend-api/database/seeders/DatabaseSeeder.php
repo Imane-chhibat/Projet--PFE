@@ -292,6 +292,15 @@ class DatabaseSeeder extends Seeder
         Announcement::create(['title'=>'Menuisier Ébéniste Expérimenté','company'=>'Riad Design Fès','category'=>'Menuiserie','city'=>'Fès','date'=>'Hier','description'=>'Atelier de création de mobilier haut de gamme.']);
         Announcement::create(['title'=>'Technicien Climatisation & Froid','company'=>'Marrakech Climat Pro','category'=>'Climatisation','city'=>'Marrakech','date'=>'Il y a 3 jours','description'=>'Entretien des groupes frigorifiques de grands hôtels.']);
         Announcement::create(['title'=>'Maître Zelligeur pour restauration','company'=>'Patrimoine & Mosaïque SARL','category'=>'Maçonnerie','city'=>'Rabat','date'=>'Il y a 5 jours','description'=>'Recherche 3 artisans zelligeurs confirmés.']);
+        
+        // 7 Nouvelles annonces ajoutées
+        Announcement::create(['title'=>'Plombier pour installation sanitaire','company'=>'Sanitaire Plus','category'=>'Plomberie','city'=>'Tanger','date'=>"Aujourd'hui",'description'=>'Besoin urgent d\'un plombier pour un chantier résidentiel de 5 étages.']);
+        Announcement::create(['title'=>'Peintre Décorateur Intérieur','company'=>'Déco Maison','category'=>'Peinture','city'=>'Casablanca','date'=>'Hier','description'=>'Recherche peintre qualifié pour décoration de salles de réception.']);
+        Announcement::create(['title'=>'Ferronnier d\'art pour balcons','company'=>'Acier & Fer','category'=>'Ferronnerie','city'=>'Agadir','date'=>'Il y a 2 jours','description'=>'Conception et installation de garde-corps et portes en fer forgé.']);
+        Announcement::create(['title'=>'Jardinier Paysagiste','company'=>'Espaces Verts Maroc','category'=>'Jardinage','city'=>'Rabat','date'=>'Il y a 4 jours','description'=>'Entretien et création de jardins pour résidences de luxe.']);
+        Announcement::create(['title'=>'Spécialiste en Aluminium','company'=>'AluPro','category'=>'Aluminium','city'=>'Marrakech','date'=>'Il y a 6 jours','description'=>'Montage de baies vitrées et fenêtres coulissantes.']);
+        Announcement::create(['title'=>'Carreleur Expérimenté','company'=>'Céramique Design','category'=>'Carrelage','city'=>'Oujda','date'=>'Il y a 1 semaine','description'=>'Pose de carrelage grand format et marbre.']);
+        Announcement::create(['title'=>'Mécanicien Auto Qualifié','company'=>'Auto Garage Centre','category'=>'Mécanique','city'=>'Meknès','date'=>'Il y a 1 semaine','description'=>'Recherche mécanicien pour diagnostic et réparations générales.']);
 
         // ── Testimonials ──
         Testimonial::create(['name'=>'Dr. Amina Tazi','city'=>'Casablanca','quote'=>"Grâce à HandPro, j'ai trouvé un électricien diplômé en 10 minutes.",'rating'=>5,'avatar'=>'https://images.unsplash.com/photo-1580489944761-15a19d654956?auto=format&fit=crop&w=150&q=80']);

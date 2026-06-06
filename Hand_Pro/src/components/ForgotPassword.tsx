@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Mail, Phone, KeyRound, ArrowLeft } from 'lucide-react';
+import { Mail, KeyRound, ArrowLeft, CheckCircle } from 'lucide-react';
 import { api } from '../utils/api';
 
 interface ForgotPasswordProps {
@@ -8,87 +8,28 @@ interface ForgotPasswordProps {
 }
 
 export default function ForgotPassword({ onBack, onResetSuccess }: ForgotPasswordProps) {
-  const [step, setStep] = useState<1 | 2 | 3>(1);
-  const [method, setMethod] = useState<'email' | 'phone'>('email');
-  const [value, setValue] = useState('');
-  const [code, setCode] = useState('');
-  const [password, setPassword] = useState('');
-  const [confirmPassword, setConfirmPassword] = useState('');
+  const [email, setEmail] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+  const [sent, setSent] = useState(false);
 
-  const handleRequestCode = async (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
-    if (!value.trim()) {
-      setError('Veuillez entrer une valeur valide.');
+    if (!email.trim()) {
+      setError('Veuillez entrer votre adresse email.');
       return;
     }
     setLoading(true);
     try {
-      const res = await api.forgotPassword(method, value);
-      // Simulation: display the code in an alert for local testing
-      if (res.simulated_code) {
-        alert(`[Simulation Envoi] Votre code de réinitialisation est : ${res.simulated_code}\n\nEn production, ce code serait envoyé par ${method === 'email' ? 'Email' : 'SMS'}.`);
-      }
-      setStep(2);
+      await api.forgotPassword(email);
+      setSent(true);
     } catch (err: any) {
       setError(err.message || 'Erreur lors de la demande');
     } finally {
       setLoading(false);
     }
   };
-
-  const handleVerifyCode = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setError('');
-    if (!code.trim()) {
-      setError('Veuillez entrer le code de vérification.');
-      return;
-    }
-    setLoading(true);
-    try {
-      // Verify the code by calling resetPassword with empty password first
-      // This will validate the code without changing the password
-      await api.resetPassword({ method, value, code, password: '', password_confirmation: '' });
-      setStep(3);
-    } catch (err: any) {
-      setError(err.message || 'Code de vérification incorrect.');
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const handleResetPassword = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setError('');
-    if (!password.trim() || !confirmPassword.trim()) {
-      setError('Veuillez remplir tous les champs.');
-      return;
-    }
-    if (password !== confirmPassword) {
-      setError('Les mots de passe ne correspondent pas.');
-      return;
-    }
-    if (password.length < 6) {
-      setError('Le mot de passe doit contenir au moins 6 caractères.');
-      return;
-    }
-    setLoading(true);
-    try {
-      await api.resetPassword({ method, value, code, password, password_confirmation: confirmPassword });
-      // Auto-redirect to login after successful password reset
-      onResetSuccess();
-    } catch (err: any) {
-      setError(err.message || 'Erreur lors de la réinitialisation du mot de passe.');
-    } finally {
-      setLoading(false);
-    }
-  };
-
-
-
-
 
   return (
     <div className="min-h-[80vh] flex items-center justify-center p-4 bg-[#F5EDE0] text-[#2A1B15] animate-fadeIn">
@@ -108,15 +49,20 @@ export default function ForgotPassword({ onBack, onResetSuccess }: ForgotPasswor
 
         <div className="relative z-10 text-center mb-8">
           <div className="w-16 h-16 bg-[#F5EDE0] rounded-full flex items-center justify-center mx-auto mb-4 border-2 border-[#CDB58E]/40">
-            <KeyRound size={28} className="text-[#603A2A]" />
+            {sent ? (
+              <CheckCircle size={28} className="text-green-600" />
+            ) : (
+              <KeyRound size={28} className="text-[#603A2A]" />
+            )}
           </div>
           <h2 className="font-display text-3xl font-bold text-[#2A1B15]">
-            Mot de passe oublié
+            {sent ? 'Email envoyé !' : 'Mot de passe oublié'}
           </h2>
           <p className="text-sm text-[#8E887F] mt-2 font-sans">
-            {step === 1 && "Choisissez comment recevoir votre code de réinitialisation."}
-            {step === 2 && "Entrez le code reçu pour vérifier votre identité."}
-            {step === 3 && "Créez votre nouveau mot de passe sécurisé."}
+            {sent 
+              ? 'Consultez votre boîte de réception pour réinitialiser votre mot de passe.'
+              : 'Entrez votre adresse email pour recevoir un lien de réinitialisation.'
+            }
           </p>
         </div>
 
@@ -127,134 +73,47 @@ export default function ForgotPassword({ onBack, onResetSuccess }: ForgotPasswor
           </div>
         )}
 
-        {/* STEP 1: Request Temporary Password */}
-        {step === 1 && (
-          <form onSubmit={handleRequestCode} className="relative z-10 space-y-6">
-            <div className="flex gap-4">
-              <button
-                type="button"
-                onClick={() => setMethod('email')}
-                className={`flex-1 py-3 px-4 rounded-xl border flex flex-col items-center gap-2 transition-all ${
-                  method === 'email' 
-                    ? 'bg-[#F5EDE0] border-[#603A2A] text-[#603A2A] shadow-inner' 
-                    : 'bg-white border-[#CDB58E]/30 text-[#8E887F] hover:border-[#CDB58E]'
-                }`}
-              >
-                <Mail size={24} />
-                <span className="text-sm font-bold">Email</span>
-              </button>
-              <button
-                type="button"
-                onClick={() => setMethod('phone')}
-                className={`flex-1 py-3 px-4 rounded-xl border flex flex-col items-center gap-2 transition-all ${
-                  method === 'phone' 
-                    ? 'bg-[#F5EDE0] border-[#603A2A] text-[#603A2A] shadow-inner' 
-                    : 'bg-white border-[#CDB58E]/30 text-[#8E887F] hover:border-[#CDB58E]'
-                }`}
-              >
-                <Phone size={24} />
-                <span className="text-sm font-bold">SMS</span>
-              </button>
-            </div>
-
-            <div>
-              <label className="block text-sm font-bold text-[#2A1B15] mb-2">
-                {method === 'email' ? 'Adresse Email' : 'Numéro de téléphone'}
-              </label>
-              <div className="relative">
-                <input
-                  type={method === 'email' ? 'email' : 'tel'}
-                  value={value}
-                  onChange={(e) => setValue(e.target.value)}
-                  className="w-full pl-12 pr-4 py-3.5 bg-[#F5EDE0]/50 border border-[#CDB58E]/40 rounded-xl focus:ring-2 focus:ring-[#CDB58E] focus:border-transparent outline-none transition-all text-[#2A1B15]"
-                  placeholder={method === 'email' ? 'vous@exemple.com' : '06...'}
-                  required
-                />
-                {method === 'email' ? (
-                  <Mail className="absolute left-4 top-1/2 -translate-y-1/2 text-[#8E887F]" size={20} />
-                ) : (
-                  <Phone className="absolute left-4 top-1/2 -translate-y-1/2 text-[#8E887F]" size={20} />
-                )}
-              </div>
-            </div>
-
-            <button
-              type="submit"
-              disabled={loading}
-              className="w-full py-3.5 bg-[#603A2A] text-[#F5EDE0] hover:bg-[#603A2A]/90 transition-all font-bold rounded-xl shadow-lg flex items-center justify-center gap-2 disabled:opacity-70"
-            >
-              {loading ? "Envoi en cours..." : "Envoyer le mot de passe temporaire"}
-            </button>
-          </form>
-        )}
-
-        {/* STEP 2: Enter Verification Code */}
-        {step === 2 && (
-          <form onSubmit={handleVerifyCode} className="relative z-10 space-y-6">
-            <div>
-              <label className="block text-sm font-bold text-[#2A1B15] mb-2">
-                Code de vérification
-              </label>
-              <div className="relative">
-                <input
-                  type="text"
-                  value={code}
-                  onChange={(e) => setCode(e.target.value)}
-                  className="w-full pl-12 pr-4 py-3.5 bg-[#F5EDE0]/50 border border-[#CDB58E]/40 rounded-xl focus:ring-2 focus:ring-[#CDB58E] focus:border-transparent outline-none transition-all text-[#2A1B15]"
-                  placeholder="Entrez le code reçu"
-                  required
-                />
-                <KeyRound className="absolute left-4 top-1/2 -translate-y-1/2 text-[#8E887F]" size={20} />
-              </div>
-              <p className="text-xs text-[#8E887F] mt-2">
-                Veuillez entrer le code envoyé à votre {method === 'email' ? 'email' : 'numéro de téléphone'}
+        {sent ? (
+          <div className="relative z-10 space-y-6">
+            <div className="bg-green-50 border border-green-200 rounded-xl p-4 text-sm text-green-700">
+              <p className="font-bold mb-1">📧 Vérifiez votre email</p>
+              <p>
+                Un lien de réinitialisation a été envoyé à <strong>{email}</strong>.
+                Le lien expire dans 60 minutes.
               </p>
             </div>
-
+            <p className="text-xs text-center text-[#8E887F]">
+              Vous n'avez pas reçu l'email ? Vérifiez votre dossier spam ou{' '}
+              <button 
+                onClick={() => { setSent(false); setError(''); }}
+                className="text-[#603A2A] font-bold hover:underline"
+              >
+                réessayez
+              </button>.
+            </p>
             <button
-              type="submit"
-              disabled={loading}
-              className="w-full py-3.5 bg-[#603A2A] text-[#F5EDE0] hover:bg-[#603A2A]/90 transition-all font-bold rounded-xl shadow-lg flex items-center justify-center gap-2 disabled:opacity-70"
+              onClick={onBack}
+              className="w-full py-3.5 bg-[#603A2A] text-[#F5EDE0] hover:bg-[#603A2A]/90 transition-all font-bold rounded-xl shadow-lg flex items-center justify-center gap-2"
             >
-              {loading ? "Vérification en cours..." : "Valider le code"}
+              Retour à la connexion
             </button>
-          </form>
-        )}
-
-        {/* STEP 3: Enter New Password */}
-        {step === 3 && (
-          <form onSubmit={handleResetPassword} className="relative z-10 space-y-6">
+          </div>
+        ) : (
+          <form onSubmit={handleSubmit} className="relative z-10 space-y-6">
             <div>
               <label className="block text-sm font-bold text-[#2A1B15] mb-2">
-                Nouveau mot de passe
+                Adresse Email
               </label>
               <div className="relative">
                 <input
-                  type="password"
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
+                  type="email"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
                   className="w-full pl-12 pr-4 py-3.5 bg-[#F5EDE0]/50 border border-[#CDB58E]/40 rounded-xl focus:ring-2 focus:ring-[#CDB58E] focus:border-transparent outline-none transition-all text-[#2A1B15]"
-                  placeholder="Entrez votre nouveau mot de passe"
+                  placeholder="vous@exemple.com"
                   required
                 />
-                <KeyRound className="absolute left-4 top-1/2 -translate-y-1/2 text-[#8E887F]" size={20} />
-              </div>
-            </div>
-
-            <div>
-              <label className="block text-sm font-bold text-[#2A1B15] mb-2">
-                Confirmer le mot de passe
-              </label>
-              <div className="relative">
-                <input
-                  type="password"
-                  value={confirmPassword}
-                  onChange={(e) => setConfirmPassword(e.target.value)}
-                  className="w-full pl-12 pr-4 py-3.5 bg-[#F5EDE0]/50 border border-[#CDB58E]/40 rounded-xl focus:ring-2 focus:ring-[#CDB58E] focus:border-transparent outline-none transition-all text-[#2A1B15]"
-                  placeholder="Confirmez votre nouveau mot de passe"
-                  required
-                />
-                <KeyRound className="absolute left-4 top-1/2 -translate-y-1/2 text-[#8E887F]" size={20} />
+                <Mail className="absolute left-4 top-1/2 -translate-y-1/2 text-[#8E887F]" size={20} />
               </div>
             </div>
 
@@ -263,12 +122,10 @@ export default function ForgotPassword({ onBack, onResetSuccess }: ForgotPasswor
               disabled={loading}
               className="w-full py-3.5 bg-[#603A2A] text-[#F5EDE0] hover:bg-[#603A2A]/90 transition-all font-bold rounded-xl shadow-lg flex items-center justify-center gap-2 disabled:opacity-70"
             >
-              {loading ? "Mise à jour en cours..." : "Ajouter mot de passe"}
+              {loading ? "Envoi en cours..." : "Envoyer le lien de réinitialisation"}
             </button>
           </form>
         )}
-
-
 
       </div>
     </div>

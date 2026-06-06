@@ -13,13 +13,16 @@ import InscriptionClient from './components/InscriptionClient';
 import { NotificationsPage } from './components/NotificationsPage';
 import { ProfilClient } from './components/ProfilClient';
 import ForgotPassword from './components/ForgotPassword';
+import ResetPassword from './components/ResetPassword';
 import { ProfilAdmin } from './components/ProfilAdmin';
 import MonProfilArtisan from './components/MonProfilArtisan';
 import { ChangePassword } from './components/ChangePassword';
 import { AnnoncesPage } from './components/AnnoncesPage';
 
 export default function App() {
-  const [activePage, setActivePage] = useState<'home' | 'search' | 'gps' | 'profile' | 'login' | 'forgot_password' | 'choix' | 'inscription_artisan' | 'inscription_client' | 'mon_profil' | 'change_password' | 'notifications' | 'client_profile' | 'admin_profile' | 'annonces'>('home');
+  const [activePage, setActivePage] = useState<'home' | 'search' | 'gps' | 'profile' | 'login' | 'forgot_password' | 'reset_password' | 'choix' | 'inscription_artisan' | 'inscription_client' | 'mon_profil' | 'change_password' | 'notifications' | 'client_profile' | 'admin_profile' | 'annonces'>('home');
+  const [resetToken, setResetToken] = useState<string>('');
+  const [resetEmail, setResetEmail] = useState<string>('');
   const [userType, setUserType] = useState<'Visitor' | 'Registered User' | 'Artisan' | 'Admin'>('Visitor');
 
   // Scroll to top on page change
@@ -27,8 +30,21 @@ export default function App() {
     window.scrollTo({ top: 0, behavior: 'smooth' });
   }, [activePage]);
 
-  // Auto-login au démarrage si token existe
+  // Check URL for /reset-password?token=...&email=... on startup
   useEffect(() => {
+    const url = new URL(window.location.href);
+    if (url.pathname === '/reset-password') {
+      const token = url.searchParams.get('token');
+      const email = url.searchParams.get('email');
+      if (token && email) {
+        setResetToken(token);
+        setResetEmail(email);
+        setActivePage('reset_password');
+        return; // Don't auto-login when resetting password
+      }
+    }
+
+    // Auto-login au démarrage si token existe
     const storedUser = localStorage.getItem('auth_user');
     const storedToken = localStorage.getItem('auth_token');
     if (storedUser && storedToken) {
@@ -176,6 +192,14 @@ export default function App() {
             onResetSuccess={() => { setActivePage('login'); window.scrollTo({ top: 0, behavior: 'smooth' }); }}
           />
         )}
+        {activePage === 'reset_password' && resetToken && resetEmail && (
+          <ResetPassword
+            token={resetToken}
+            email={resetEmail}
+            onSuccess={() => { setActivePage('login'); window.scrollTo({ top: 0, behavior: 'smooth' }); }}
+            onBack={() => { setActivePage('login'); window.scrollTo({ top: 0, behavior: 'smooth' }); }}
+          />
+        )}
         {activePage === 'choix' && (
           <Choix onNavigate={(page) => setActivePage(page as any)} />
         )}
@@ -203,8 +227,16 @@ export default function App() {
         )}
         {activePage === 'change_password' && (
           <ChangePassword onBack={() => { 
-            const backPage = userType === 'Artisan' ? 'mon_profil' : 'client_profile';
-            setActivePage(backPage); 
+            const storedUser = localStorage.getItem('auth_user');
+            const user = storedUser ? JSON.parse(storedUser) : null;
+            const role = user?.role?.toLowerCase();
+            if (role === 'admin') {
+              setActivePage('admin_profile');
+            } else if (role === 'artisan') {
+              setActivePage('mon_profil');
+            } else {
+              setActivePage('client_profile');
+            }
             window.scrollTo({ top: 0, behavior: 'smooth' }); 
           }} />
         )}
@@ -214,7 +246,7 @@ export default function App() {
       </div>
 
       {/* FOOTER */}
-      {activePage !== 'login' && activePage !== 'forgot_password' && activePage !== 'choix' && activePage !== 'inscription_artisan' && activePage !== 'inscription_client' && activePage !== 'mon_profil' && activePage !== 'change_password' && (
+      {activePage !== 'login' && activePage !== 'forgot_password' && activePage !== 'reset_password' && activePage !== 'choix' && activePage !== 'inscription_artisan' && activePage !== 'inscription_client' && activePage !== 'mon_profil' && activePage !== 'change_password' && (
         <Footer
           setActivePage={(page) => {
             setActivePage(page as any);

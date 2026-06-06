@@ -8,7 +8,9 @@ return new class extends Migration
 {
     public function up(): void
     {
+        Schema::disableForeignKeyConstraints();
         Schema::dropIfExists('announcements');
+        Schema::enableForeignKeyConstraints();
 
         Schema::create('announcements', function (Blueprint $table) {
             $table->id();

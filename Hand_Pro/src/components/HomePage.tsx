@@ -163,13 +163,19 @@ const TestimonialsColumn = (props: {
                       "{text}"
                     </p>
                     <footer className="flex items-center gap-3 mt-5 pt-4 border-t border-[#8E887F]/10">
-                      <img
-                        width={40}
-                        height={40}
-                        src={image}
-                        alt={`Avatar of ${name}`}
-                        className="h-10 w-10 rounded-full object-cover border border-[#CDB58E] group-hover:scale-105 transition-transform duration-300 ease-in-out"
-                      />
+                      {image && !image.includes('ui-avatars') ? (
+                        <img
+                          width={48}
+                          height={48}
+                          src={image}
+                          alt={`Avatar of ${name}`}
+                          className="h-12 w-12 shrink-0 rounded-full object-cover border-2 border-[#CDB58E] shadow-sm group-hover:scale-105 transition-transform duration-300 ease-in-out"
+                        />
+                      ) : (
+                        <div className="h-12 w-12 shrink-0 rounded-full border-2 border-[#CDB58E] bg-[#2A1B15] flex items-center justify-center shadow-sm group-hover:scale-105 transition-transform duration-300 ease-in-out">
+                          <span className="text-[#CDB58E] font-bold text-xl">{name.charAt(0).toUpperCase()}</span>
+                        </div>
+                      )}
                       <div className="flex flex-col text-left">
                         <cite className="font-sans font-bold text-xs text-[#2A1B15] not-italic leading-none">
                           {name}
@@ -319,36 +325,39 @@ export const HomePage = ({
   useEffect(() => {
     const fetchData = async () => {
       try {
-        const [citiesData, categoriesData, artisansData, announcementsData] = await Promise.all([
-          api.getCities().catch(() => []),
-          api.getCategories(),
-          api.getArtisans().catch(() => []),
-          api.getAnnouncements().catch(() => []), // Ignore announcements error if missing
-        ]);
-        
+        const citiesData = await api.getCities().catch(() => []);
+        const categoriesData = await api.getCategories().catch(() => []);
+        const artisansData = await api.getArtisans().catch(() => []);
+        const announcementsData = await api.getAnnouncements().catch(() => []);
+        const commentsData = await api.getComments().catch(() => []);
         const publicStats = await api.getPublicStats().catch(() => ({
           artisans_count: 0,
-          cities_count: 0, 
-          clients_count: 0
+          cities_count: 0,
+          clients_count: 0,
         }));
 
-        setCities(citiesData);
-        setCategories(categoriesData);
-        setArtisans(artisansData);
-        setAnnouncements(announcementsData);
+        setCities(Array.isArray(citiesData) ? citiesData : []);
+        setCategories(Array.isArray(categoriesData) ? categoriesData : []);
+        setArtisans(Array.isArray(artisansData) ? artisansData : []);
+        setAnnouncements(Array.isArray(announcementsData) ? announcementsData : []);
+        setComments(Array.isArray(commentsData) ? commentsData : []);
+
+        const totalArtisans = Number(publicStats?.artisans_count) ||
+          (Array.isArray(artisansData) ? artisansData.length : 0);
+
+        const totalCities = Number(publicStats?.cities_count) ||
+          (Array.isArray(citiesData) ? citiesData.length : 0);
+
+        const totalClients = Number(publicStats?.clients_count) || 0;
 
         setStatistics({
-          artisans: Number(publicStats.artisans_count) || 
-                    (Array.isArray(artisansData) ? artisansData.length : 0),
-          cities: Number(publicStats.cities_count) || 
-                  (Array.isArray(citiesData) ? citiesData.length : 0),
-          clients: Number(publicStats.clients_count) || 0,
+          artisans: totalArtisans,
+          cities: totalCities,
+          clients: totalClients,
         });
-        // Load latest 20 comments
-        const commentsData = await api.getComments();
-        setComments(commentsData);
+
       } catch (error) {
-        console.error("Error fetching homepage data:", error);
+        console.error('Error fetching homepage data:', error);
       } finally {
         setLoading(false);
       }
@@ -1000,7 +1009,7 @@ export const HomePage = ({
                           {ann.company || ann.company_name || ''}
                         </h3>
                         <p className="text-sm text-[#745b19] font-semibold mb-3 flex items-center gap-1.5">
-                          🏢 {ann.title || ''}
+                          <Briefcase size={14} className="text-[#745b19]" /> {ann.title || ''}
                         </p>
                       </div>
                       <div>
@@ -1173,7 +1182,7 @@ export const HomePage = ({
               role: c.user?.role === 'artisan' ? 'Artisan' : 'Client(e)',
               image: c.user?.avatar
                 ? (c.user.avatar.startsWith('http') ? c.user.avatar : `http://localhost:8000/storage/${c.user.avatar}`)
-                : `https://ui-avatars.com/api/?name=${encodeURIComponent(c.user?.name || c.author || 'Client')}&background=random&color=fff`
+                : null
             }));
 
             // On combine les vrais avis avec les avis de démonstration pour garder un design riche et fluide (3 colonnes)

@@ -179,9 +179,51 @@ export const api = {
   },
 
   async getAnnouncements() {
-    const res = await fetch(`${API_BASE}/announcements`);
-    if (!res.ok) throw new Error('Failed to fetch announcements');
-    return res.json();
+    try {
+        const token = localStorage.getItem('auth_token');
+        const headers: any = { 
+            'Accept': 'application/json',
+            'Content-Type': 'application/json',
+        };
+        if (token) headers['Authorization'] = `Bearer ${token}`;
+        
+        const response = await fetch(`${API_BASE}/announcements`, { headers });
+        
+        if (!response.ok) return [];
+        
+        const data = await response.json();
+        
+        // Handle all possible response formats
+        const list = Array.isArray(data) ? data 
+            : Array.isArray(data?.announcements) ? data.announcements 
+            : Array.isArray(data?.data) ? data.data 
+            : [];
+        
+        // Normalize each announcement fields
+        return list.map((ann: any) => ({
+            id:              ann.id,
+            company_name:    ann.company_name || ann.company || '',
+            company:         ann.company_name || ann.company || '',
+            category:        ann.category     || ann.specialty || 'Offre',
+            specialty:       ann.category     || ann.specialty || 'Offre',
+            title:           ann.title        || '',
+            description:     ann.description  || '',
+            contact_email:   ann.contact_email || ann.email || '',
+            email:           ann.contact_email || ann.email || '',
+            contact_phone:   ann.contact_phone || ann.phone || '',
+            phone:           ann.contact_phone || ann.phone || '',
+            contact_address: ann.contact_address || ann.address || '',
+            address:         ann.contact_address || ann.address || '',
+            website:         ann.website || '',
+            city:            ann.city || ann.contact_address || '',
+            expires_at:      ann.expires_at || null,
+            created_at:      ann.created_at || ann.date || '',
+            date:            ann.created_at || ann.date || '',
+        }));
+    } catch (err) {
+        console.error('getAnnouncements error:', err);
+        return [];
+    }
   },
 
   async getTestimonials() {
@@ -225,23 +267,23 @@ export const api = {
     return res.json();
   },
 
-  async forgotPassword(method: 'email' | 'phone', value: string) {
+  async forgotPassword(email: string) {
     const res = await fetch(`${API_BASE}/forgot-password`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
         'Accept': 'application/json'
       },
-      body: JSON.stringify({ method, value }),
+      body: JSON.stringify({ email }),
     });
     const data = await res.json();
     if (!res.ok) {
-      throw new Error(data.message || 'Erreur lors de la demande de réinitialisation');
+      throw new Error(data.error || data.message || 'Erreur lors de la demande de réinitialisation');
     }
     return data;
   },
 
-  async resetPassword(data: { method: 'email' | 'phone', value: string, code: string, password: string, password_confirmation: string }) {
+  async resetPassword(data: { email: string, token: string, password: string, password_confirmation: string }) {
     const res = await fetch(`${API_BASE}/reset-password`, {
       method: 'POST',
       headers: {
@@ -388,7 +430,6 @@ export const api = {
 
   async updateMyProfile(formData: FormData) {
     const token = localStorage.getItem('auth_token');
-    formData.append('_method', 'PUT'); // Workaround for Laravel PUT with files
     const res = await fetch(`${API_BASE}/my-profile`, {
       method: 'POST',
       headers: {
@@ -398,7 +439,7 @@ export const api = {
       body: formData,
     });
     if (!res.ok) {
-      const err = await res.json();
+      const err = await res.json().catch(() => ({}));
       throw new Error(err.message || 'Erreur lors de la mise à jour');
     }
     return res.json();
@@ -608,56 +649,106 @@ export const api = {
     return res.json();
   },
 
-  async createAnnouncement(data: { title: string; content: string }) {
+  createAnnouncement: async (data: any) => {
     const token = localStorage.getItem('auth_token');
-    const res = await fetch(`${API_BASE}/announcements`, {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${token}`,
-        'Content-Type': 'application/json',
-        'Accept': 'application/json',
-      },
-      body: JSON.stringify(data),
+    
+    const payload = {
+        company_name:    data.company_name    || '',
+        category:        data.category        || 'Autre',
+        title:           data.title           || '',
+        description:     data.description     || '',
+        contact_email:   data.contact_email   || '',
+        contact_phone:   data.contact_phone   || '',
+        contact_address: data.contact_address || null,
+        website:         data.website         || null,
+        city:            data.city            || '',
+        expires_at:      data.expires_at      || null,
+    };
+
+    console.log('POST /api/announcements payload:', payload);
+    console.log('Token:', token ? 'exists' : 'missing');
+
+    const response = await fetch(`${API_BASE}/announcements`, {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'Accept': 'application/json',
+            ...(token ? { 'Authorization': `Bearer ${token}` } : {}),
+        },
+        body: JSON.stringify(payload),
     });
-    if (!res.ok) {
-      const err = await res.json();
-      throw new Error(err.message || 'Erreur lors de la création de l\'annonce');
+
+    const result = await response.json().catch(() => ({}));
+    console.log('POST /api/announcements response:', response.status, result);
+
+    if (!response.ok) {
+        const message = result?.message 
+            || result?.error 
+            || (result?.errors ? Object.values(result.errors).flat().join(', ') : null)
+            || `Erreur ${response.status}`;
+        throw new Error(message);
     }
-    return res.json();
+
+    return result;
   },
 
-  async deleteAnnouncement(id: string) {
+  deleteAnnouncement: async (id: any) => {
     const token = localStorage.getItem('auth_token');
-    const res = await fetch(`${API_BASE}/announcements/${id}`, {
-      method: 'DELETE',
-      headers: {
-        'Authorization': `Bearer ${token}`,
-        'Accept': 'application/json',
-      },
+
+    const response = await fetch(`${API_BASE}/announcements/${id}`, {
+        method: 'DELETE',
+        headers: {
+            'Accept': 'application/json',
+            ...(token ? { 'Authorization': `Bearer ${token}` } : {}),
+        },
     });
-    if (!res.ok) {
-      const err = await res.json();
-      throw new Error(err.message || 'Erreur lors de la suppression de l\'annonce');
+
+    if (!response.ok) {
+        const result = await response.json().catch(() => ({}));
+        throw new Error(result?.message || result?.error || `Erreur ${response.status}`);
     }
-    return res.json();
+
+    return { success: true };
   },
 
-  async updateAnnouncement(id: string, data: { title: string; content: string; category?: string; company?: string; city?: string }) {
+  updateAnnouncement: async (id: any, data: any) => {
     const token = localStorage.getItem('auth_token');
-    const res = await fetch(`${API_BASE}/announcements/${id}`, {
-      method: 'PUT',
-      headers: {
-        'Authorization': `Bearer ${token}`,
-        'Content-Type': 'application/json',
-        'Accept': 'application/json',
-      },
-      body: JSON.stringify(data),
+
+    const payload = {
+        company_name:    data.company_name    || '',
+        category:        data.category        || 'Autre',
+        title:           data.title           || '',
+        description:     data.description     || '',
+        contact_email:   data.contact_email   || '',
+        contact_phone:   data.contact_phone   || '',
+        contact_address: data.contact_address || null,
+        website:         data.website         || null,
+        city:            data.city            || '',
+        expires_at:      data.expires_at      || null,
+    };
+
+    const response = await fetch(`${API_BASE}/announcements/${id}`, {
+        method: 'PUT',
+        headers: {
+            'Content-Type': 'application/json',
+            'Accept': 'application/json',
+            ...(token ? { 'Authorization': `Bearer ${token}` } : {}),
+        },
+        body: JSON.stringify(payload),
     });
-    if (!res.ok) {
-      const err = await res.json();
-      throw new Error(err.message || 'Erreur lors de la mise à jour de l\'annonce');
+
+    const result = await response.json().catch(() => ({}));
+    console.log('PUT /api/announcements response:', response.status, result);
+
+    if (!response.ok) {
+        const message = result?.message
+            || result?.error
+            || (result?.errors ? Object.values(result.errors).flat().join(', ') : null)
+            || `Erreur ${response.status}`;
+        throw new Error(message);
     }
-    return res.json();
+
+    return result;
   },
 
   async getAnnouncementApplications(announcementId: string) {

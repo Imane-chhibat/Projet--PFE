@@ -188,91 +188,53 @@ class AuthController extends Controller
     public function forgotPassword(Request $request): JsonResponse
     {
         $request->validate([
-            'method' => 'required|in:email,phone',
-            'value'  => 'required|string',
+            'email' => 'required|email',
         ]);
 
-        $field = $request->method;
-        $value = $request->value;
+        $email = $request->email;
 
-        $user = User::where($field, $value)->first();
+        $user = User::where('email', $email)->first();
 
         if (!$user) {
             return response()->json([
-                'message' => 'Aucun compte trouvé avec ces informations.'
+                'error' => 'Email introuvable'
             ], 404);
         }
 
-        // Generate a 6‑digit OTP
-        $otp = random_int(100000, 999999);
+        // Generate a secure random token
+        $token = bin2hex(random_bytes(32));
 
-        // Store hashed OTP (expire after 10 minutes)
+        // Store token in password_reset_tokens table
         \Illuminate\Support\Facades\DB::table('password_reset_tokens')->updateOrInsert(
-            ['email' => $value],
-            ['token' => Hash::make($otp), 'created_at' => now()]
+            ['email' => $email],
+            ['token' => Hash::make($token), 'created_at' => now()]
         );
 
-        // Send OTP via Brevo API for email
-        if ($field === 'email') {
-            try {
-                $config = \Brevo\Client\Configuration::getDefaultConfiguration()
-                    ->setApiKey('api-key', env('BREVO_API_KEY'));
+        // Build the reset link pointing to the React frontend
+        $resetLink = "http://localhost:3000/reset-password?token={$token}&email=" . urlencode($email);
 
-                $apiInstance = new \Brevo\Client\Api\TransactionalEmailsApi(
-                    new \GuzzleHttp\Client(),
-                    $config
-                );
+        // Send email via Laravel Mail (Gmail SMTP)
+        try {
+            \Illuminate\Support\Facades\Mail::to($email)->send(
+                new \App\Mail\ResetPasswordMail($resetLink, $user->name)
+            );
 
-                $sendSmtpEmail = new \Brevo\Client\Model\SendSmtpEmail();
-                $sendSmtpEmail->setSender([
-                    'name' => 'Hand_Pro',
-                    'email' => env('MAIL_FROM_ADDRESS', 'noreply@handpro.ma')
-                ]);
-                $sendSmtpEmail->setTo([['email' => $value, 'name' => $user->name]]);
-                $sendSmtpEmail->setSubject('Code de vérification Hand_Pro');
-                $sendSmtpEmail->setHtmlContent("
-                    <div style='font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;'>
-                        <h2 style='color: #603A2A;'>Code de vérification Hand_Pro</h2>
-                        <p>Bonjour {$user->name},</p>
-                        <p>Voici votre code de vérification pour réinitialiser votre mot de passe :</p>
-                        <div style='background-color: #F5EDE0; padding: 20px; text-align: center; border-radius: 10px; margin: 20px 0;'>
-                            <h1 style='color: #603A2A; font-size: 48px; margin: 0;'>{$otp}</h1>
-                        </div>
-                        <p>Ce code expire dans 10 minutes.</p>
-                        <p>Si vous n'avez pas demandé cette réinitialisation, ignorez cet email.</p>
-                    </div>
-                ");
+            \Illuminate\Support\Facades\Log::info('Password reset email sent', ['email' => $email]);
 
-                $result = $apiInstance->sendTransacEmail($sendSmtpEmail);
-                \Illuminate\Support\Facades\Log::info('Email sent via Brevo', ['email' => $value, 'messageId' => $result->getMessageId()]);
-            } catch (\Exception $e) {
-                \Illuminate\Support\Facades\Log::error('Failed to send email via Brevo', ['error' => $e->getMessage()]);
-                // Fallback to Laravel Mail if Brevo fails
-                \Illuminate\Support\Facades\Mail::to($value)->send(new \App\Mail\OtpMail($otp));
-            }
-        } else {
-            // For phone, use Twilio (already configured)
-            try {
-                $twilio = new \Twilio\Rest\Client(env('TWILIO_ACCOUNT_SID'), env('TWILIO_AUTH_TOKEN'));
-                $twilio->messages->create(
-                    $value,
-                    [
-                        'from' => env('TWILIO_WHATSAPP_FROM'),
-                        'body' => "Votre code de vérification Hand_Pro est : {$otp}. Ce code expire dans 10 minutes."
-                    ]
-                );
-                \Illuminate\Support\Facades\Log::info('SMS sent via Twilio', ['phone' => $value]);
-            } catch (\Exception $e) {
-                \Illuminate\Support\Facades\Log::error('Failed to send SMS via Twilio', ['error' => $e->getMessage()]);
-            }
+            return response()->json([
+                'message' => 'Email envoyé'
+            ]);
+        } catch (\Exception $e) {
+            \Illuminate\Support\Facades\Log::error('Failed to send password reset email', [
+                'email' => $email,
+                'error' => $e->getMessage()
+            ]);
+
+            return response()->json([
+                'error' => 'Erreur lors de l\'envoi de l\'email. Veuillez réessayer.',
+                'debug' => config('app.debug') ? $e->getMessage() : null,
+            ], 500);
         }
-
-        // Return a generic success response (do not expose OTP in production)
-        return response()->json([
-            'message' => 'Code de vérification envoyé avec succès',
-            'simulated_code' => $otp // Return for testing purposes
-        ]);
-
     }
 
     /**
@@ -281,45 +243,43 @@ class AuthController extends Controller
     public function resetPassword(Request $request): JsonResponse
     {
         $request->validate([
-            'method'   => 'required|in:email,phone',
-            'value'    => 'required|string',
-            'code'     => 'required|string',
+            'email'    => 'required|email',
+            'token'    => 'required|string',
             'password' => 'required|string|min:6|confirmed',
         ]);
 
-        $field = $request->method;
-        $value = $request->value;
-        $code  = $request->code;
+        $email = $request->email;
+        $token = $request->token;
         $newPassword = $request->password;
 
-        // Retrieve the stored OTP record
+        // Retrieve the stored token record
         $record = \Illuminate\Support\Facades\DB::table('password_reset_tokens')
-            ->where('email', $value)
+            ->where('email', $email)
             ->first();
 
         if (!$record) {
-            return response()->json(['message' => 'Le code est invalide ou a expiré.'], 400);
+            return response()->json(['message' => 'Le lien est invalide ou a expiré.'], 400);
         }
 
-        // Verify OTP and expiration (10 minutes)
-        if (!\Illuminate\Support\Facades\Hash::check($code, $record->token) ||
-            now()->diffInMinutes($record->created_at) > 10) {
-            return response()->json(['message' => 'Le code est invalide ou a expiré.'], 400);
+        // Verify token and expiration (60 minutes)
+        if (!Hash::check($token, $record->token) ||
+            now()->diffInMinutes($record->created_at) > 60) {
+            return response()->json(['message' => 'Le lien est invalide ou a expiré.'], 400);
         }
 
         // Find the user and update password
-        $user = User::where($field, $value)->first();
+        $user = User::where('email', $email)->first();
 
         if (!$user) {
             return response()->json(['message' => 'Utilisateur non trouvé.'], 404);
         }
 
-        $user->password = \Illuminate\Support\Facades\Hash::make($newPassword);
+        $user->password = Hash::make($newPassword);
         $user->save();
 
         // Remove used token
         \Illuminate\Support\Facades\DB::table('password_reset_tokens')
-            ->where('email', $value)
+            ->where('email', $email)
             ->delete();
 
         return response()->json(['message' => 'Mot de passe réinitialisé avec succès.']);

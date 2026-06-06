@@ -53,7 +53,8 @@ Route::middleware('auth:sanctum')->group(function () {
 
     // ── Mon Profil Artisan ──
     Route::get('/my-profile',  [ArtisanController::class, 'myProfile']);
-    Route::put('/my-profile',  [ArtisanController::class, 'updateMyProfile']);
+    Route::post('/my-profile', [ArtisanController::class, 'updateMyProfile']);
+    Route::post('/my-profile/update', [ArtisanController::class, 'updateMyProfile']);
     Route::post('/my-profile/portfolio', [ArtisanController::class, 'addPortfolioItem']);
     Route::delete('/my-profile/portfolio/{itemId}', [ArtisanController::class, 'removePortfolioItem']);
 

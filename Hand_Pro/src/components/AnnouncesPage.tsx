@@ -29,21 +29,27 @@ export const AnnouncesPage = ({ onBack, onSelectAnnouncement }: AnnouncesPagePro
   )].sort();
 
   useEffect(() => {
+    let cancelled = false;
     const fetchAnnouncements = async () => {
-      try {
-        const data = await api.getAnnouncements().catch(() => []);
-        const list = Array.isArray(data) ? data : (data?.announcements || []);
-        setAnnouncements(list);
-        setFiltered(list);
-      } catch (err) {
-        console.error(err);
-        setAnnouncements([]);
-        setFiltered([]);
-      } finally {
-        setLoading(false);
-      }
+        setLoading(true);
+        try {
+            const data = await api.getAnnouncements();
+            if (!cancelled) {
+                const list = Array.isArray(data) ? data : [];
+                setAnnouncements(list);
+                setFiltered(list);
+            }
+        } catch (err) {
+            if (!cancelled) {
+                setAnnouncements([]);
+                setFiltered([]);
+            }
+        } finally {
+            if (!cancelled) setLoading(false);
+        }
     };
     fetchAnnouncements();
+    return () => { cancelled = true; };
   }, []);
 
   // Apply filters whenever filter states change

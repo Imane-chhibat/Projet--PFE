@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { api } from "../utils/api";
-import { Settings, LogOut, Camera, Star, Heart, Clock, Search, MapPin, Map as MapIcon, Image as ImageIcon, Calendar } from 'lucide-react';
+import { Settings, LogOut, Camera, Star, Heart, Clock, Search, MapPin, Map as MapIcon, Image as ImageIcon, Calendar, MessageSquare, UserCheck, UserX } from 'lucide-react';
 import logoHand from '../images/logo_hand.png';
 
 interface ProfilClientProps {
@@ -15,6 +15,7 @@ export function ProfilClient({ onNavigateToInscription = () => {}, onNavigateToA
   const [favorites, setFavorites] = useState<any[]>([]);
   const [reviews, setReviews] = useState<any[]>([]);
   const [comments, setComments] = useState<any[]>([]);
+  const [stats, setStats] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [editing, setEditing] = useState(false);
   const [editForm, setEditForm] = useState({ name: "", phone: "", city: "", email: "" });
@@ -40,12 +41,13 @@ export function ProfilClient({ onNavigateToInscription = () => {}, onNavigateToA
   const loadData = async () => {
     setLoading(true);
     try {
-      const [profileRes, reqRes, favRes, reviewsRes, commentsRes] = await Promise.allSettled([
+      const [profileRes, reqRes, favRes, reviewsRes, commentsRes, statsRes] = await Promise.allSettled([
         api.getClientProfile(),
         api.getClientRequests(),
         api.getClientFavorites(),
         api.getClientReviews(),
         api.getClientComments(),
+        api.getAdminStats(),
       ]);
 
       // Profile is mandatory — if it fails, show error
@@ -69,6 +71,7 @@ export function ProfilClient({ onNavigateToInscription = () => {}, onNavigateToA
       else console.warn("Could not load reviews:", reviewsRes.reason);
       if (commentsRes.status === 'fulfilled') setComments(commentsRes.value.comments || []);
       else console.warn("Could not load comments:", commentsRes.reason);
+      if (statsRes.status === 'fulfilled') setStats(statsRes.value);
 
     } catch (err) {
       console.error("Error loading profile:", err);
@@ -270,16 +273,27 @@ export function ProfilClient({ onNavigateToInscription = () => {}, onNavigateToA
           <section style={{ display: "flex", flexWrap: "wrap", alignItems: "flex-end", gap: 32, borderBottom: "1px solid rgba(198,198,206,0.3)", paddingBottom: 48 }}>
             {/* Avatar */}
             <div style={{ position: "relative" }}>
-              <div className="artisan-shadow" style={{ width: 200, height: 200, borderRadius: "50%", overflow: "hidden", border: "4px solid white", background: "#e8d9b4", display: "flex", alignItems: "center", justifyContent: "center" }}>
+              <div className="artisan-shadow" style={{ width: 200, height: 200, borderRadius: "50%", overflow: "hidden", border: "4px solid white", background: "#2A1B15", display: "flex", alignItems: "center", justifyContent: "center" }}>
                 {avatarPreview || user?.avatar ? (
-                  <img src={avatarPreview || user.avatar} alt={user?.name} style={{ width: "100%", height: "100%", objectFit: "cover" }} />
-                ) : (
-                  <span style={{ fontSize: 64, color: "#745b19", fontWeight: 700 }}>{user?.name?.charAt(0).toUpperCase() || "C"}</span>
-                )}
+                  <img 
+                    src={avatarPreview || user.avatar} 
+                    alt={user?.name} 
+                    style={{ width: "100%", height: "100%", objectFit: "cover" }} 
+                    onError={(e) => {
+                      (e.target as HTMLImageElement).style.display = 'none';
+                      const fallback = (e.target as HTMLImageElement).parentElement?.querySelector('.avatar-fallback');
+                      if (fallback) fallback.removeAttribute('style');
+                    }}
+                  />
+                ) : null}
+                
+                <span className="avatar-fallback" style={{ fontSize: 80, color: "#CDB58E", fontWeight: 700, display: (avatarPreview || user?.avatar) ? 'none' : 'block' }}>
+                  {user?.name?.charAt(0).toUpperCase() || "C"}
+                </span>
               </div>
               {editing && (
-                <label style={{ position: "absolute", bottom: 8, right: 8, background: "#745b19", color: "white", border: "none", borderRadius: "50%", width: 44, height: 44, display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer", boxShadow: "0 4px 12px rgba(0,0,0,0.2)" }}>
-                  <span className="material-symbols-outlined">edit</span>
+                <label style={{ position: "absolute", bottom: 8, right: 8, background: "#CDB58E", color: "#2A1B15", border: "none", borderRadius: "50%", width: 44, height: 44, display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer", boxShadow: "0 4px 12px rgba(0,0,0,0.3)" }} title="Changer la photo de profil">
+                  <Camera size={20} />
                   <input type="file" accept="image/*" onChange={handleAvatarChange} style={{ display: "none" }} />
                 </label>
               )}

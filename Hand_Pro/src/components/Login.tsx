@@ -989,6 +989,7 @@ export default function Login({
                   type={showPassword ? "text" : "password"}
                   placeholder="••••••••"
                   value={password}
+                  autoComplete="current-password"
                   onChange={(e: React.ChangeEvent<HTMLInputElement>) => setPassword(e.target.value)}
                   required
                   onFocus={(e: React.FocusEvent<HTMLInputElement>) =>

@@ -185,11 +185,11 @@ export const Navbar = ({
               </div>
             ) : userType === 'Artisan' ? (
               <div className="relative z-30 group flex justify-center items-center">
-                <div className="text-[#CDB58E] hover:text-white cursor-pointer flex items-center gap-2 font-bold text-sm bg-[#603A2A]/40 px-4 py-2 rounded-full border border-[#CDB58E]/30 transition-colors">
-                  <div className="w-6 h-6 rounded-full overflow-hidden bg-[#2A1B15] flex items-center justify-center border border-[#CDB58E]">
+                <div className="text-[#CDB58E] hover:text-white cursor-pointer flex items-center gap-2 font-bold text-sm bg-[#603A2A]/40 px-3 py-1.5 rounded-full border border-[#CDB58E]/30 transition-colors">
+                  <div className="w-9 h-9 rounded-full overflow-hidden bg-[#2A1B15] flex items-center justify-center border-2 border-[#CDB58E] shadow-sm shrink-0 text-lg">
                     {avatar ? <img src={avatar} className="w-full h-full object-cover" /> : (userName?.charAt(0).toUpperCase() || 'A')}
                   </div>
-                  Profil
+                  <span className="hidden sm:inline-block">Profil</span>
                   {notifications.some(n => !n.is_read) && (
                     <div className="relative flex items-center justify-center ml-1">
                       <span className="absolute -inset-1 bg-red-500 rounded-full animate-ping opacity-75"></span>
@@ -238,12 +238,18 @@ export const Navbar = ({
                   Admin
                 </div>
 
-                <div className="absolute top-full right-0 mt-2 w-48 bg-white rounded-xl shadow-xl opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-300 transform z-40 border border-[#CDB58E]/30 overflow-hidden">
+              <div className="absolute top-full right-0 mt-2 w-52 bg-white rounded-xl shadow-xl opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-300 transform z-40 border border-[#CDB58E]/30 overflow-hidden">
                   <button
                     onClick={() => setActivePage('admin_profile')}
                     className="w-full text-left px-4 py-3 text-sm text-[#2A1B15] hover:bg-[#F5EDE0] flex items-center gap-2 transition-colors border-b border-[#F5EDE0]"
                   >
                     <span>Dashboard Admin</span>
+                  </button>
+                  <button
+                    onClick={() => setActivePage('change_password')}
+                    className="w-full text-left px-4 py-3 text-sm text-[#2A1B15] hover:bg-[#F5EDE0] flex items-center gap-2 transition-colors border-b border-[#F5EDE0]"
+                  >
+                    <span>Changer mot de passe</span>
                   </button>
                   <button
                     onClick={() => {
@@ -260,11 +266,11 @@ export const Navbar = ({
               </div>
             ) : (
               <div className="relative z-30 group flex justify-center items-center">
-                <div className="text-[#CDB58E] hover:text-white cursor-pointer flex items-center gap-2 font-bold text-sm bg-[#603A2A]/40 px-4 py-2 rounded-full border border-[#CDB58E]/30 transition-colors">
-                  <div className="w-6 h-6 rounded-full overflow-hidden bg-[#2A1B15] flex items-center justify-center text-[#CDB58E] font-bold text-xs border border-[#CDB58E]">
+                <div className="text-[#CDB58E] hover:text-white cursor-pointer flex items-center gap-2 font-bold text-sm bg-[#603A2A]/40 px-3 py-1.5 rounded-full border border-[#CDB58E]/30 transition-colors">
+                  <div className="w-9 h-9 rounded-full overflow-hidden bg-[#2A1B15] flex items-center justify-center text-[#CDB58E] font-bold text-lg border-2 border-[#CDB58E] shadow-sm shrink-0">
                     {avatar ? <img src={avatar} className="w-full h-full object-cover" /> : (userName?.charAt(0).toUpperCase() || 'C')}
                   </div>
-                  Profil
+                  <span className="hidden sm:inline-block">Profil</span>
                 </div>
 
                 <div className="absolute top-full right-0 mt-2 w-48 bg-white rounded-xl shadow-xl opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-300 transform z-40 border border-[#CDB58E]/30 overflow-hidden">

@@ -786,10 +786,10 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({
                       <div key={rev.id} className="bg-white rounded-xl p-4 shadow-xs border border-[#F5EDE0]">
                         <div className="flex items-center justify-between gap-2 mb-2">
                           <div className="flex items-center gap-2.5">
-                            {rev.clientAvatar ? (
-                              <img src={rev.clientAvatar} alt={rev.clientName} className="w-8 h-8 rounded-full object-cover border border-[#CDB58E]" />
+                            {rev.clientAvatar && !rev.clientAvatar.includes('ui-avatars') ? (
+                              <img src={rev.clientAvatar} alt={rev.clientName} className="w-10 h-10 rounded-full object-cover border-2 border-[#CDB58E] shadow-sm shrink-0" />
                             ) : (
-                              <div className="w-8 h-8 rounded-full border border-[#CDB58E] bg-[#F5EDE0] flex items-center justify-center flex-shrink-0" style={{ fontWeight: 700, color: '#603A2A', fontSize: 14 }}>
+                              <div className="w-10 h-10 rounded-full border-2 border-[#CDB58E] bg-[#2A1B15] flex items-center justify-center shrink-0 shadow-sm" style={{ fontWeight: 700, color: '#CDB58E', fontSize: 18 }}>
                                 {rev.clientName?.charAt(0)?.toUpperCase() || 'C'}
                               </div>
                             )}

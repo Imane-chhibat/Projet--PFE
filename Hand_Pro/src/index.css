@@ -29,6 +29,17 @@ body {
   background-color: #2A1B15;
   color: #F5EDE0;
   overflow-x: hidden;
+  cursor: default; /* Désactive le curseur I-beam (écriture) sur tous les textes */
+  -webkit-user-select: none; /* Safari */
+  -ms-user-select: none; /* IE 10 and IE 11 */
+  user-select: none; /* Empêche la sélection de texte (le | au clic) */
+}
+
+input, textarea, select {
+  cursor: text; /* Réactive le curseur d'écriture pour les champs de formulaire */
+  -webkit-user-select: auto;
+  -ms-user-select: auto;
+  user-select: auto; /* Permet de sélectionner le texte dans les champs */
 }
 
 .font-display {
