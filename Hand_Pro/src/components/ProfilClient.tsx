@@ -21,6 +21,7 @@ export function ProfilClient({ onNavigateToInscription = () => {}, onNavigateToA
   const [editForm, setEditForm] = useState({ name: "", phone: "", city: "", email: "" });
   const [avatarFile, setAvatarFile] = useState<File | null>(null);
   const [avatarPreview, setAvatarPreview] = useState<string | null>(null);
+  const [avatarError, setAvatarError] = useState(false);
   const [saving, setSaving] = useState(false);
   const [cities, setCities] = useState<string[]>([]);
   // Confirm modal state for deletes and cancels
@@ -274,22 +275,18 @@ export function ProfilClient({ onNavigateToInscription = () => {}, onNavigateToA
             {/* Avatar */}
             <div style={{ position: "relative" }}>
               <div className="artisan-shadow" style={{ width: 200, height: 200, borderRadius: "50%", overflow: "hidden", border: "4px solid white", background: "#2A1B15", display: "flex", alignItems: "center", justifyContent: "center" }}>
-                {avatarPreview || user?.avatar ? (
+                {(avatarPreview || user?.avatar) && !avatarError ? (
                   <img 
                     src={avatarPreview || user.avatar} 
                     alt={user?.name} 
                     style={{ width: "100%", height: "100%", objectFit: "cover" }} 
-                    onError={(e) => {
-                      (e.target as HTMLImageElement).style.display = 'none';
-                      const fallback = (e.target as HTMLImageElement).parentElement?.querySelector('.avatar-fallback');
-                      if (fallback) fallback.removeAttribute('style');
-                    }}
+                    onError={() => setAvatarError(true)}
                   />
-                ) : null}
-                
-                <span className="avatar-fallback" style={{ fontSize: 80, color: "#CDB58E", fontWeight: 700, display: (avatarPreview || user?.avatar) ? 'none' : 'block' }}>
-                  {user?.name?.charAt(0).toUpperCase() || "C"}
-                </span>
+                ) : (
+                  <span style={{ fontSize: 80, color: "#CDB58E", fontWeight: 700, lineHeight: 1, userSelect: "none" }}>
+                    {user?.name?.charAt(0).toUpperCase() || "C"}
+                  </span>
+                )}
               </div>
               {editing && (
                 <label style={{ position: "absolute", bottom: 8, right: 8, background: "#CDB58E", color: "#2A1B15", border: "none", borderRadius: "50%", width: 44, height: 44, display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer", boxShadow: "0 4px 12px rgba(0,0,0,0.3)" }} title="Changer la photo de profil">
