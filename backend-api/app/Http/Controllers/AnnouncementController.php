@@ -9,42 +9,47 @@ class AnnouncementController extends Controller
     public function index()
     {
         try {
-            $announcements = Announcement::where(function($query) {
-                    $query->whereNull('expires_at')
-                          ->orWhere('expires_at', '>=', \Carbon\Carbon::today());
+            $today = \Carbon\Carbon::today()->toDateString();
+
+            $rows = \DB::table('announcements')
+                ->where(function($q) use ($today) {
+                    $q->whereNull('expires_at')
+                      ->orWhere('expires_at', '>=', $today);
                 })
                 ->orderBy('created_at', 'desc')
-                ->get()
-                ->map(function($ann) {
-                    return [
-                        'id'              => $ann->id,
-                        'company_name'    => $ann->company_name ?? $ann->company,
-                        'company'         => $ann->company_name ?? $ann->company,
-                        'category'        => $ann->category,
-                        'specialty'       => $ann->category,
-                        'title'           => $ann->title,
-                        'description'     => $ann->description,
-                        'contact_email'   => $ann->contact_email ?? $ann->email,
-                        'email'           => $ann->contact_email ?? $ann->email,
-                        'contact_phone'   => $ann->contact_phone ?? $ann->phone,
-                        'phone'           => $ann->contact_phone ?? $ann->phone,
-                        'contact_address' => $ann->contact_address ?? $ann->address,
-                        'address'         => $ann->contact_address ?? $ann->address,
-                        'website'         => $ann->website,
-                        'city'            => $ann->city,
-                        'expires_at'      => $ann->expires_at?->format('Y-m-d'),
-                        'created_at'      => $ann->created_at->format('Y-m-d H:i:s'),
-                        'date'            => $ann->created_at->format('Y-m-d'),
-                    ];
-                });
+                ->get();
+
+            $announcements = $rows->map(function($ann) {
+                return [
+                    'id'              => $ann->id,
+                    'company_name'    => $ann->company_name,
+                    'company'         => $ann->company_name,
+                    'category'        => $ann->category,
+                    'specialty'       => $ann->category,
+                    'title'           => $ann->title,
+                    'description'     => $ann->description,
+                    'contact_email'   => $ann->contact_email,
+                    'email'           => $ann->contact_email,
+                    'contact_phone'   => $ann->contact_phone,
+                    'phone'           => $ann->contact_phone,
+                    'contact_address' => $ann->contact_address,
+                    'address'         => $ann->contact_address,
+                    'website'         => $ann->website,
+                    'city'            => $ann->city,
+                    'expires_at'      => $ann->expires_at,
+                    'created_at'      => $ann->created_at,
+                    'date'            => $ann->created_at ? substr($ann->created_at, 0, 10) : null,
+                ];
+            })->values();
 
             return response()->json($announcements);
 
         } catch (\Exception $e) {
             \Log::error('Announcements index error: ' . $e->getMessage());
-            return response()->json([], 200);
+            return response()->json(['error' => $e->getMessage()], 500);
         }
     }
+
 
     public function store(Request $request)
     {
